@@ -2,7 +2,7 @@
 
 ![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)
 [![Doc](https://docs.rs/bevy_app_compute/badge.svg)](https://docs.rs/bevy_app_compute)
-[![Crate](https://img.shields.io/crates/v/bevy_mod_compute.svg)](https://crates.io/crates/bevy_mod_compute)
+[![Crate](https://img.shields.io/crates/v/bevy_app_compute.svg)](https://crates.io/crates/bevy_app_compute)
 
 
 Dispatch and run compute shaders on bevy from App World .
