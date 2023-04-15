@@ -10,11 +10,10 @@ use bevy::{
 };
 use futures_lite::future;
 
-use crate::{worker::AppComputeWorker, ComputeShader, WorkerEvent};
-
+use crate::{plugin::ComputeInfo, worker::AppComputeWorker, ComputeShader, WorkerEvent};
 
 // Struct responsible for creating new workers and processing tasks
-// It requires <C> so that we don't mix tasks between different <C> 
+// It requires <C> so that we don't mix tasks between different <C>
 #[derive(Resource)]
 pub struct AppCompute<C: ComputeShader> {
     render_device: RenderDevice,
@@ -26,12 +25,11 @@ pub struct AppCompute<C: ComputeShader> {
 
 impl<C: ComputeShader> FromWorld for AppCompute<C> {
     fn from_world(world: &mut bevy::prelude::World) -> Self {
-        let render_device = world.resource::<RenderDevice>().clone();
-        let render_queue = world.resource::<RenderQueue>().clone();
+        let compute_info = world.resource::<ComputeInfo>();
 
         Self {
-            render_device,
-            render_queue,
+            render_device: compute_info.device.clone(),
+            render_queue: compute_info.queue.clone(),
             pipeline: None,
             tasks: vec![],
             _phantom: PhantomData::default(),
@@ -77,6 +75,10 @@ impl<C: ComputeShader> AppCompute<C> {
         let mut indices_to_remove = vec![];
 
         for (idx, task) in &mut app_compute.tasks.iter_mut().enumerate() {
+            if !task.is_finished() {
+                continue;
+            }
+
             let Some(worker) = future::block_on(future::poll_once(task.into_future())) else { continue; };
 
             worker_events.send(WorkerEvent::new(worker));

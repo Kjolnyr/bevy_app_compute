@@ -11,6 +11,9 @@ fn index_from_coords(coords: vec3<u32>) -> u32 {
 @compute @workgroup_size(1)
 fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
-    my_storage[index_from_coords(invocation_id)] = f32(index_from_coords(invocation_id));
+
+    for (var i = 0; i < 1000000; i += 1) {
+        my_storage[index_from_coords(invocation_id)] += f32(i);
+    }
 
 }

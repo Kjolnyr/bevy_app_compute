@@ -67,9 +67,9 @@ fn my_system(
 ```
 
 
-### Asynchronous computation
+### Non blocking computation
 
-You can run your compute shaders asynchronously to avoid loosing frame time.
+You can run your compute shaders without blocking the current system. Warning, wgpu doesn't support async compute, so your compute shader execution will be added to bevy's render queue.
 
 ```rust
 use bevy::prelude::*;
