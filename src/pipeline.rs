@@ -10,7 +10,6 @@ use crate::ComputeShader;
 use super::pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId};
 
 
-// Uses wgsl reflect layout system, so we are a bit more flexible
 #[derive(Resource, Clone)]
 pub struct AppComputePipeline<C: ComputeShader> {
     pub(crate) app_compute_pipeline: CachedAppComputePipelineId,
@@ -32,10 +31,10 @@ impl<C: ComputeShader> FromWorld for AppComputePipeline<C> {
         let app_compute_pipeline =
             app_pipeline_cache.queue_app_compute_pipeline(ComputePipelineDescriptor {
                 label: None,
-                layout: vec![],
-                push_constant_ranges: vec![],
+                layout: C::layouts().to_vec(),
+                push_constant_ranges: C::push_constant_ranges().to_vec(),
                 shader: shader,
-                shader_defs: vec![],
+                shader_defs: C::shader_defs().to_vec(),
                 entry_point: Cow::from(C::entry_point()),
             });
 

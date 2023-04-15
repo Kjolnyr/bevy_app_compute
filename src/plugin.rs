@@ -16,7 +16,7 @@ use crate::{
 #[derive(Resource)]
 pub struct ComputeInfo {
     pub(crate) device: RenderDevice,
-    pub(crate) queue: RenderQueue
+    pub(crate) queue: RenderQueue,
 }
 
 impl From<(RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter)> for ComputeInfo {
@@ -69,8 +69,8 @@ impl<C: ComputeShader> Plugin for AppComputePlugin<C> {
             .init_resource::<AppComputePipeline<C>>()
             .init_resource::<AppCompute<C>>()
             .add_event::<WorkerEvent<C>>()
-            .add_system(AppCompute::<C>::process_tasks)
-            .add_system(extract_shaders)
+            .add_system(AppCompute::<C>::process_tasks.in_base_set(CoreSet::PreUpdate))
+            .add_system(extract_shaders.in_base_set(CoreSet::PreUpdate))
             .add_system(process_pipeline_queue_system::<C>);
     }
 }

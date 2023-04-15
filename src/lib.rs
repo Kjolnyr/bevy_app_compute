@@ -3,11 +3,12 @@ use std::marker::PhantomData;
 use app_compute::AppCompute;
 use bevy::{
     prelude::{AssetEvent, Assets, EventReader, Res, ResMut, Shader},
-    render::render_resource::ShaderRef,
+    render::render_resource::{BindGroupLayout, ShaderDefVal, ShaderRef},
 };
 
 use pipeline::AppComputePipeline;
 use pipeline_cache::AppPipelineCache;
+use wgpu::PushConstantRange;
 use worker::AppComputeWorker;
 
 mod app_compute;
@@ -57,6 +58,17 @@ pub fn extract_shaders(
 
 pub trait ComputeShader: Send + Sync + 'static {
     fn shader() -> ShaderRef;
+
+    fn layouts<'a>() -> &'a [BindGroupLayout] {
+        &[]
+    }
+
+    fn shader_defs<'a>() -> &'a [ShaderDefVal] {
+        &[]
+    }
+    fn push_constant_ranges<'a>() -> &'a [PushConstantRange] {
+        &[]
+    }
 
     fn entry_point<'a>() -> &'a str {
         "main"
