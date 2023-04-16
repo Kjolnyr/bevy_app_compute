@@ -34,8 +34,8 @@ impl ComputeWorker for SimpleComputeWorker {
             .add_pass::<SecondPassShader>([4, 1, 1], &["output"]) // multiply each element of `output` by itself
             .build();
 
-            // [1. + 3., 2. + 3., 3. + 3., 4. + 3.] = [4., 5., 6., 7.]
-            // [4. * 4., 5. * 5., 6. * 6., 7. * 7.] = [16., 25., 36., 49.]
+        // [1. + 3., 2. + 3., 3. + 3., 4. + 3.] = [4., 5., 6., 7.]
+        // [4. * 4., 5. * 5., 6. * 6., 7. * 7.] = [16., 25., 36., 49.]
 
         worker
     }

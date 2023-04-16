@@ -13,15 +13,16 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_app_compute = "0.10.1"
+bevy_app_compute = { git = "https://github.com/Kjolnyr/bevy_app_compute.git", branch = "dev" }
 ```
 
 ## Usage
 
 ### Setup
 
-Make an empty struct and implement `ComputeShader` on it. the `shader()` fn should point to your shader source code.
-You need to derive `TypeUuid` as well and assign a unique Uuid.
+Declare your shaders in structs implementing `ComputeShader`. The `shader()` fn should point to your shader source code.
+You need to derive `TypeUuid` as well and assign a unique Uuid:
+
 ```rust
 #[derive(TypeUuid)]
 #[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
@@ -34,7 +35,43 @@ impl ComputeShader for SimpleShader {
 }
 ```
 
-Add the plugin to your app:
+Next, declare a struct implementing `ComputeWorker` to declare the bindings and the logic of your worker:
+
+```rust
+#[derive(Resource)]
+struct SimpleComputeWorker;
+
+impl ComputeWorker for SimpleComputeWorker {
+    fn build(world: &mut World) -> AppComputeWorker<Self> {
+        let worker = AppComputeWorkerBuilder::new(world)
+            .add_uniform("uni", &5.)
+            .add_staging("values", &[1., 2., 3., 4.])
+            .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
+            .build();
+
+        worker
+    }
+}
+
+```
+
+Don't forget to add a shader file to your `assets/` folder:
+
+```rust
+
+@group(0) @binding(0)
+var<uniform> uni: f32;
+
+@group(0) @binding(1)
+var<storage, read_write> my_storage: array<f32>;
+
+@compute @workgroup_size(1)
+fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
+    my_storage[invocation_id.x] = my_storage[invocation_id.x] + uni;
+}
+```
+
+Add the `AppComputePlugin` plugin to your app, as well as one `AppComputeWorkerPlugin` per struct implementing `ComputeWorker`:
 
 ```rust
 use bevy::prelude::*;
@@ -42,125 +79,47 @@ use bevy_app_compute::AppComputePlugin;
 
 fn main() {
     App::new()
-        .add_plugin(AppComputePlugin::<SimpleShader>::default())
+        .add_plugin(AppComputePlugin)
+        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default());
 }
 ```
 
-And then use the `AppCompute` resource to build workers. These workers will let you configure and run some compute shaders from App World!
+Your compute worker will now run every frame, during the `PostUpdate` stage. To read/write from it, use the `AppComputeWorker<T>` resource!
 
 ```rust
-use bevy::prelude::*;
-use bevy_app_compute::prelude::*;
-
 fn my_system(
-    app_compute: Res<AppCompute>,
+    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>
 ) {
+    if !compute_worker.available() {
+        return;
+    };
 
-    // Get a fresh worker from AppCompute
-    let worker = app_compute.worker()
+    let values = compute_worker.read("values");
+    let result: &[f32] = cast_slice(&values);
 
-        // Add some uniforms and storages
-        .add_uniform("value", 5.)
-        .add_storage("storage", vec![1., 2., 3., 4.])
+    compute_worker.write("values", [2., 3., 4., 5.]);
 
-        // Add a staging buffer and link it to a storage
-        // It will let you get data back from the GPU.
-        .add_staging_buffer("staging", "storage")
-
-        // Dispatch some work to your shader.
-        // You need to specify workgroups and used variables
-        .pass::<SimpleShader>([4, 1, 1], &["value", "storage"])
-
-        // Copy the data from the storage to your staging buffer
-        .read_staging_buffers()
-
-        // Submit! This is where the magic happens.
-        .submit()
-
-        // Map your buffers back to CPU world.
-        .map_staging_buffers()
-
-        // Get the data immediately, this will block your system.
-        .now();
-
-    let result = worker.get_data("staging");
-    let value: &[f32] = cast_slice(&result);
-
-    println!("value: {:?}", value);
+    println!("got {:?}", result)
 }
 ```
-
-
-### Non blocking computation
-
-You can run your compute shaders without blocking the current system as well. Please be aware that WGPU doesn't support multiple queues, so your submit will be blended in bevy's render queue. This is not ideal.
-
-```rust
-use bevy::prelude::*;
-use bevy_app_compute::prelude::*;
-
-fn my_sender_system(
-    mut app_compute: ResMut<AppCompute>
-) {
-    
-    app_compute
-        .worker()
-        .add_storage("storage", vec![0f32; 30])
-        .add_staging_buffer("staging", "storage")
-        .pass::<HeavyShader>([30, 1, 1], &["storage"])
-        .read_staging_buffers()
-        .submit()
-        .map_staging_buffers();
-
-        // We do not call `now()` here.
-}
-
-fn my_receiver_system(
-    app_compute: Res<AppCompute>,
-    mut worker_events: EventReader<FinishedWorkerEvent>
-) {
-    // An event is fired once a worker has finished processing.
-    // This, for now, happens in the next frame.
-    for ev in &mut worker_events.iter() {
-        let id = &ev.0;
-
-        let Some(worker) = app_compute.get_worker(*id) else { continue; };
-
-        let data = worker.get_data("staging");
-        let values: &[f32] = cast_slice(&data);
-
-        println!("values: {:?}", values);
-    }
-}
-```
-
 
 ### Multiple passes
 
 You can have multiple passes without having to copy data back to the CPU in between:
 
 ```rust
-let worker = app_compute
-        .worker()
-        .add_uniform("value", 5.)
-        .add_storage("input", vec![1., 2., 3., 4.])
-        .add_storage("output", vec![0f32; 4])
-        .add_storage("final", vec![0f32; 4])
-        .add_staging_buffer("staging", "final")
-        // Here we run two passes
-        // add `value` to each element of `output`
-        .pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"])
-        // multiply each element of `output` by itself 
-        .pass::<SecondPassShader>([4, 1, 1], &["output", "final"]) 
-        .read_staging_buffers()
-        .submit()
-        .map_staging_buffers()
-        .now();
+let worker = AppComputeWorkerBuilder::new(world)
+    .add_uniform("value", &3.)
+    .add_storage("input", &[1., 2., 3., 4.])
+    .add_staging("output", &[0f32; 4])
+    // add each item + `value` from `input` to `output`
+    .add_pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"]) 
+    // multiply each element of `output` by itself
+    .add_pass::<SecondPassShader>([4, 1, 1], &["output"]) 
+    .build();
 
-    let result = worker.get_data("staging");
-    let value: &[f32] = cast_slice(&result);
+    // the `output` buffer will contain [16.0, 25.0, 36.0, 49.0]
 
-    println!("value: {:?}", value); // [36.0, 49.0, 64.0, 81.0]
 ```
 
 

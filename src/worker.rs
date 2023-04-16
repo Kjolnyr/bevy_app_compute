@@ -2,16 +2,17 @@ use core::panic;
 use std::marker::PhantomData;
 
 use bevy::{
+    core::{cast_slice, Pod},
     prelude::{Res, ResMut, Resource},
     render::{
-        render_resource::{Buffer, ComputePipeline, ShaderType, encase::private::WriteInto},
+        render_resource::{encase::private::WriteInto, Buffer, ComputePipeline, ShaderType},
         renderer::{RenderDevice, RenderQueue},
     },
-    utils::{HashMap, Uuid}, core::{cast_slice, Pod},
+    utils::{HashMap, Uuid},
 };
 use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
-    ComputePassDescriptor, SubmissionIndex, BufferDescriptor, BufferUsages,
+    BindGroupDescriptor, BindGroupEntry, BufferDescriptor, BufferUsages, CommandEncoder,
+    CommandEncoderDescriptor, ComputePassDescriptor, SubmissionIndex,
 };
 
 use crate::{
@@ -43,16 +44,14 @@ pub(crate) struct ComputePass {
     pub(crate) shader_uuid: Uuid,
 }
 
-
 #[derive(Clone)]
 pub(crate) struct StaggingBuffers {
     read: Buffer,
-    write: Buffer
+    write: Buffer,
 }
 
 impl StaggingBuffers {
     pub fn new<'a>(render_device: &'a RenderDevice, size: u64) -> Self {
-
         Self {
             read: render_device.create_buffer(&BufferDescriptor {
                 label: None,
@@ -65,7 +64,7 @@ impl StaggingBuffers {
                 size,
                 usage: BufferUsages::COPY_SRC | BufferUsages::COPY_DST,
                 mapped_at_creation: false,
-            })
+            }),
         }
     }
 }
@@ -103,10 +102,8 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             .map(|(uuid, _)| (*uuid, None))
             .collect();
 
-        let command_encoder = Some(
-            render_device
-                .create_command_encoder(&CommandEncoderDescriptor { label: None }),
-        );
+        let command_encoder =
+            Some(render_device.create_command_encoder(&CommandEncoderDescriptor { label: None }));
 
         Self {
             id: WorkerId(Uuid::new_v4()),
@@ -133,7 +130,10 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         for compute_pass in &mut self.passes {
             let mut entries = vec![];
             for (index, var) in compute_pass.vars.iter().enumerate() {
-                let buffer = self.buffers.get(var).unwrap_or_else(|| panic!("Couldn't find {var} in self.buffers."));
+                let buffer = self
+                    .buffers
+                    .get(var)
+                    .unwrap_or_else(|| panic!("Couldn't find {var} in self.buffers."));
 
                 let entry = BindGroupEntry {
                     binding: index as u32,
@@ -143,9 +143,12 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 entries.push(entry);
             }
 
-            let maybe_pipeline = self.pipelines.get(&compute_pass.shader_uuid).unwrap_or_else(|| panic!("No pipeline in worker.pipelines"));
+            let maybe_pipeline = self
+                .pipelines
+                .get(&compute_pass.shader_uuid)
+                .unwrap_or_else(|| panic!("No pipeline in worker.pipelines"));
 
-            let Some(pipeline) = maybe_pipeline else { 
+            let Some(pipeline) = maybe_pipeline else {
                 eprintln!("Pipeline isn't ready yet."); 
                 return false;
             };
@@ -175,7 +178,10 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     pub fn write_staging_buffers(&mut self) -> &mut Self {
         for (name, staging_buffer) in &self.staging_buffers {
             let Some(encoder) = &mut self.command_encoder else { return self; };
-            let buffer = self.buffers.get(name).unwrap_or_else(|| panic!("Unable to find buffer {name}"));
+            let buffer = self
+                .buffers
+                .get(name)
+                .unwrap_or_else(|| panic!("Unable to find buffer {name}"));
             encoder.copy_buffer_to_buffer(&staging_buffer.write, 0, &buffer, 0, buffer.size());
         }
         self
@@ -184,8 +190,17 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     pub fn read_staging_buffers(&mut self) -> &mut Self {
         for (name, staging_buffer) in &self.staging_buffers {
             let Some(encoder) = &mut self.command_encoder else { return self; };
-            let buffer = self.buffers.get(name).unwrap_or_else(|| panic!("Unable to find buffer {name}"));
-            encoder.copy_buffer_to_buffer(&buffer, 0, &staging_buffer.read, 0, staging_buffer.read.size());
+            let buffer = self
+                .buffers
+                .get(name)
+                .unwrap_or_else(|| panic!("Unable to find buffer {name}"));
+            encoder.copy_buffer_to_buffer(
+                &buffer,
+                0,
+                &staging_buffer.read,
+                0,
+                staging_buffer.read.size(),
+            );
         }
         self
     }
@@ -220,9 +235,13 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     pub fn read(&self, target: &str) -> Vec<u8> {
-        let staging_buffer = &self.staging_buffers.get(target).unwrap_or_else(|| panic!("Couldn't find staging_buffer {target}"));
+        let staging_buffer = &self
+            .staging_buffers
+            .get(target)
+            .unwrap_or_else(|| panic!("Couldn't find staging_buffer {target}"));
 
-        let result = staging_buffer.read
+        let result = staging_buffer
+            .read
             .slice(..)
             .get_mapped_range()
             .as_ref()
@@ -232,12 +251,16 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     pub fn write<T: ShaderType + WriteInto + Pod>(&mut self, target: &str, data: T) {
-        let staging_buffer = &self.staging_buffers.get(target).unwrap_or_else(|| panic!("Unable to find buffer {target} to write into"));
+        let staging_buffer = &self
+            .staging_buffers
+            .get(target)
+            .unwrap_or_else(|| panic!("Unable to find buffer {target} to write into"));
 
         let binding = [data];
         let bytes: &[u8] = cast_slice(&binding);
 
-        self.render_queue.write_buffer(&staging_buffer.write, 0, &bytes);
+        self.render_queue
+            .write_buffer(&staging_buffer.write, 0, &bytes);
         self.write_requested = true;
     }
 
@@ -270,7 +293,6 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
     pub fn run(mut worker: ResMut<Self>) {
         if worker.available() || worker.created() {
-
             if worker.write_requested {
                 worker.write_staging_buffers();
                 worker.write_requested = false;
@@ -296,7 +318,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     pub fn unmap_all(mut worker: ResMut<Self>) {
-        if !worker.available() ||worker.created() {
+        if !worker.available() || worker.created() {
             return;
         };
 
