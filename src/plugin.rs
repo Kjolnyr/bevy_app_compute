@@ -4,9 +4,10 @@ use bevy::{prelude::*, render::renderer::RenderDevice};
 
 use crate::{
     extract_shaders, pipeline_cache::AppPipelineCache, process_pipeline_queue_system,
-    traits::ComputeWorker, worker::AppComputeWorker, FinishedWorkerEvent,
+    traits::ComputeWorker, worker::AppComputeWorker,
 };
 
+/// The main plugin. Always include it if you want to use `bevy_app_compute`
 pub struct AppComputePlugin;
 
 impl Plugin for AppComputePlugin {
@@ -14,12 +15,13 @@ impl Plugin for AppComputePlugin {
         let render_device = app.world.resource::<RenderDevice>().clone();
 
         app.insert_resource(AppPipelineCache::new(render_device))
-            .add_event::<FinishedWorkerEvent>()
             .add_system(extract_shaders.in_base_set(CoreSet::PreUpdate))
             .add_system(process_pipeline_queue_system);
     }
 }
 
+
+/// Plugin to initialise your [`AppComputeWorker<W>`] structs.
 pub struct AppComputeWorkerPlugin<W: ComputeWorker> {
     _phantom: PhantomData<W>,
 }

@@ -21,15 +21,6 @@ use crate::{
     worker_builder::AppComputeWorkerBuilder,
 };
 
-#[derive(Clone, Copy, PartialEq)]
-pub struct WorkerId(pub(crate) Uuid);
-
-impl From<Uuid> for WorkerId {
-    fn from(uuid: Uuid) -> Self {
-        Self(uuid)
-    }
-}
-
 #[derive(PartialEq)]
 pub enum WorkerState {
     Created,
@@ -51,7 +42,7 @@ pub(crate) struct StaggingBuffers {
 }
 
 impl StaggingBuffers {
-    pub fn new<'a>(render_device: &'a RenderDevice, size: u64) -> Self {
+    pub(crate) fn new<'a>(render_device: &'a RenderDevice, size: u64) -> Self {
         Self {
             read: render_device.create_buffer(&BufferDescriptor {
                 label: None,
@@ -69,12 +60,10 @@ impl StaggingBuffers {
     }
 }
 
-// This struct is the core of this plugin
-// It's goal is to create the context to send to the GPU (uniforms, storages)
-// It's also responsible for mapping buffers in order to get data back from the GPU
+/// Struct to manage data transfers from/to the GPU
+/// it also handles the logic of your compute work.
 #[derive(Resource)]
 pub struct AppComputeWorker<W: ComputeWorker> {
-    pub id: WorkerId,
     pub(crate) state: WorkerState,
     render_device: RenderDevice,
     render_queue: RenderQueue,
@@ -92,6 +81,7 @@ pub struct AppComputeWorker<W: ComputeWorker> {
 }
 
 impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorker<W> {
+    /// Create a new [`AppComputeWorker<W>`].
     fn from(builder: &AppComputeWorkerBuilder<W>) -> Self {
         let render_device = builder.world.resource::<RenderDevice>().clone();
         let render_queue = builder.world.resource::<RenderQueue>().clone();
@@ -106,7 +96,6 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             Some(render_device.create_command_encoder(&CommandEncoderDescriptor { label: None }));
 
         Self {
-            id: WorkerId(Uuid::new_v4()),
             state: WorkerState::Created,
             render_device,
             render_queue,
@@ -126,7 +115,7 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
 }
 
 impl<W: ComputeWorker> AppComputeWorker<W> {
-    pub fn dispatch_passes(&mut self) -> bool {
+    fn dispatch_passes(&mut self) -> bool {
         for compute_pass in &mut self.passes {
             let mut entries = vec![];
             for (index, var) in compute_pass.vars.iter().enumerate() {
@@ -175,7 +164,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         true
     }
 
-    pub fn write_staging_buffers(&mut self) -> &mut Self {
+    fn write_staging_buffers(&mut self) -> &mut Self {
         for (name, staging_buffer) in &self.staging_buffers {
             let Some(encoder) = &mut self.command_encoder else { return self; };
             let buffer = self
@@ -187,7 +176,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         self
     }
 
-    pub fn read_staging_buffers(&mut self) -> &mut Self {
+    fn read_staging_buffers(&mut self) -> &mut Self {
         for (name, staging_buffer) in &self.staging_buffers {
             let Some(encoder) = &mut self.command_encoder else { return self; };
             let buffer = self
@@ -205,7 +194,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         self
     }
 
-    pub fn map_staging_buffers(&mut self) -> &mut Self {
+    fn map_staging_buffers(&mut self) -> &mut Self {
         for (_, staging_buffer) in self.staging_buffers.iter_mut() {
             let read_buffer_slice = staging_buffer.read.slice(..);
             let write_buffer_slice = staging_buffer.write.slice(..);
@@ -234,6 +223,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         self
     }
 
+    /// Read data from `target` staging buffer.
     pub fn read(&self, target: &str) -> Vec<u8> {
         let staging_buffer = &self
             .staging_buffers
@@ -250,6 +240,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         result
     }
 
+    /// Write data to `target` staging buffer.
     pub fn write<T: ShaderType + WriteInto + Pod>(&mut self, target: &str, data: T) {
         let staging_buffer = &self
             .staging_buffers
@@ -264,7 +255,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         self.write_requested = true;
     }
 
-    pub fn submit(&mut self) -> &mut Self {
+    fn submit(&mut self) -> &mut Self {
         let encoder = self.command_encoder.take().unwrap();
         let index = self.render_queue.submit(Some(encoder.finish()));
         self.submission_index = Some(index);
@@ -272,7 +263,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         self
     }
 
-    pub fn poll(&self) -> bool {
+    fn poll(&self) -> bool {
         let index = &self
             .submission_index
             .clone()
@@ -283,15 +274,17 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             .poll(wgpu::MaintainBase::WaitForSubmissionIndex(index.clone()))
     }
 
+    /// Check if the worker if available for read/write.
     pub fn available(&self) -> bool {
         self.state == WorkerState::Available
     }
 
-    pub fn created(&self) -> bool {
+    
+    fn created(&self) -> bool {
         self.state == WorkerState::Created
     }
 
-    pub fn run(mut worker: ResMut<Self>) {
+    pub(crate) fn run(mut worker: ResMut<Self>) {
         if worker.available() || worker.created() {
             if worker.write_requested {
                 worker.write_staging_buffers();
@@ -317,7 +310,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         }
     }
 
-    pub fn unmap_all(mut worker: ResMut<Self>) {
+    pub(crate) fn unmap_all(mut worker: ResMut<Self>) {
         if !worker.available() || worker.created() {
             return;
         };
@@ -341,7 +334,10 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         worker.read_buffers_mapped = write_buffer_mapped;
     }
 
-    pub fn extract_pipelines(mut worker: ResMut<Self>, pipeline_cache: Res<AppPipelineCache>) {
+    pub(crate) fn extract_pipelines(
+        mut worker: ResMut<Self>,
+        pipeline_cache: Res<AppPipelineCache>,
+    ) {
         for (uuid, cached_id) in &worker.cached_pipeline_ids.clone() {
             let Some(pipeline) = worker.pipelines.get(&uuid) else { continue; };
 
