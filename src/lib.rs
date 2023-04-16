@@ -1,42 +1,25 @@
-use std::marker::PhantomData;
-
 use app_compute::AppCompute;
 use bevy::{
     prelude::{AssetEvent, Assets, EventReader, Res, ResMut, Shader},
+    reflect::TypeUuid,
     render::render_resource::{BindGroupLayout, ShaderDefVal, ShaderRef},
 };
 
-use pipeline::AppComputePipeline;
 use pipeline_cache::AppPipelineCache;
 use wgpu::PushConstantRange;
-use worker::AppComputeWorker;
+use worker::WorkerId;
 
 mod app_compute;
-mod pipeline;
 mod pipeline_cache;
 mod plugin;
 mod worker;
 
 pub mod prelude {
-    pub use crate::{
-        app_compute::AppCompute, plugin::AppComputePlugin, ComputeShader, WorkerEvent,
-    };
+    pub use crate::{app_compute::AppCompute, plugin::AppComputePlugin, ComputeShader};
 }
 
-pub fn process_pipeline_queue_system<C: ComputeShader>(
-    mut pipeline_cache: ResMut<AppPipelineCache>,
-    app_pipeline: Res<AppComputePipeline<C>>,
-    mut app_compute: ResMut<AppCompute<C>>,
-) {
+pub fn process_pipeline_queue_system(mut pipeline_cache: ResMut<AppPipelineCache>) {
     pipeline_cache.process_queue();
-
-    if app_compute.pipeline.is_some() {
-        return;
-    }
-
-    app_compute.pipeline = pipeline_cache
-        .get_compute_pipeline(app_pipeline.app_compute_pipeline)
-        .cloned();
 }
 
 pub fn extract_shaders(
@@ -56,7 +39,7 @@ pub fn extract_shaders(
     }
 }
 
-pub trait ComputeShader: Send + Sync + 'static {
+pub trait ComputeShader: TypeUuid + Sized + Send + Sync + 'static {
     fn shader() -> ShaderRef;
 
     fn layouts<'a>() -> &'a [BindGroupLayout] {
@@ -75,16 +58,10 @@ pub trait ComputeShader: Send + Sync + 'static {
     }
 }
 
-pub struct WorkerEvent<C: ComputeShader> {
-    pub worker: AppComputeWorker,
-    _phantom: PhantomData<C>,
-}
+pub struct FinishedWorkerEvent(pub WorkerId);
 
-impl<C: ComputeShader> WorkerEvent<C> {
-    pub fn new(worker: AppComputeWorker) -> Self {
-        Self {
-            worker,
-            _phantom: PhantomData::default(),
-        }
+impl From<WorkerId> for FinishedWorkerEvent {
+    fn from(id: WorkerId) -> Self {
+        Self(id)
     }
 }

@@ -1,93 +1,113 @@
-use std::{future::IntoFuture, marker::PhantomData};
-
 use bevy::{
     prelude::*,
     render::{
         render_resource::ComputePipeline,
         renderer::{RenderDevice, RenderQueue},
     },
-    tasks::{AsyncComputeTaskPool, Task},
+    utils::{HashMap, Uuid},
 };
-use futures_lite::future;
 
-use crate::{plugin::ComputeInfo, worker::AppComputeWorker, ComputeShader, WorkerEvent};
+use crate::{
+    pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId},
+    plugin::ComputeInfo,
+    worker::{AppComputeWorker, WorkerId, WorkerState},
+    ComputeShader, FinishedWorkerEvent,
+};
 
 // Struct responsible for creating new workers and processing tasks
 // It requires <C> so that we don't mix tasks between different <C>
 #[derive(Resource)]
-pub struct AppCompute<C: ComputeShader> {
-    render_device: RenderDevice,
-    render_queue: RenderQueue,
-    pub(crate) pipeline: Option<ComputePipeline>,
-    tasks: Vec<Task<AppComputeWorker>>,
-    _phantom: PhantomData<C>,
+pub struct AppCompute {
+    pub(crate) render_device: RenderDevice,
+    pub(crate) render_queue: RenderQueue,
+    pub(crate) cached_pipeline_ids: HashMap<Uuid, CachedAppComputePipelineId>,
+    pub(crate) pipelines: HashMap<Uuid, Option<ComputePipeline>>,
+    pub(crate) workers: Vec<AppComputeWorker>,
 }
 
-impl<C: ComputeShader> FromWorld for AppCompute<C> {
+impl FromWorld for AppCompute {
     fn from_world(world: &mut bevy::prelude::World) -> Self {
         let compute_info = world.resource::<ComputeInfo>();
 
         Self {
             render_device: compute_info.device.clone(),
             render_queue: compute_info.queue.clone(),
-            pipeline: None,
-            tasks: vec![],
-            _phantom: PhantomData::default(),
+            cached_pipeline_ids: HashMap::default(),
+            pipelines: HashMap::default(),
+            workers: vec![],
         }
     }
 }
 
-impl<C: ComputeShader> AppCompute<C> {
-    pub fn worker(&self) -> Option<AppComputeWorker> {
-        if let Some(pipeline) = &self.pipeline {
-            // Probably could avoid cloning with some cursed lifetime rust code
-            Some(AppComputeWorker::new(
-                self.render_device.clone(),
-                self.render_queue.clone(),
-                pipeline.clone(),
-            ))
-        } else {
-            None
-        }
+impl AppCompute {
+    pub fn worker(&mut self) -> &mut AppComputeWorker {
+        self.workers.push(AppComputeWorker::new(
+            Uuid::new_v4().into(),
+            self.render_device.clone(),
+            self.render_queue.clone(),
+            self.pipelines.clone(),
+        ));
+
+        self.workers.last_mut().unwrap()
     }
 
-    // Add a new compute tasks to the queue, this allow running compute shaders without blocking the main thread
-    pub fn queue(&mut self, mut worker: AppComputeWorker, workgroups: (u32, u32, u32)) {
-        let pool = AsyncComputeTaskPool::get();
-
-        let task = pool.spawn(async move {
-            worker.run(workgroups);
-            worker
-        });
-
-        self.tasks.push(task);
-    }
-
-    // Process the tasks and send an event once finished with the data
-    pub fn process_tasks(
-        mut app_compute: ResMut<Self>,
-        mut worker_events: EventWriter<WorkerEvent<C>>,
-    ) {
-        if app_compute.tasks.is_empty() {
-            return;
-        }
-
-        let mut indices_to_remove = vec![];
-
-        for (idx, task) in &mut app_compute.tasks.iter_mut().enumerate() {
-            if !task.is_finished() {
-                continue;
+    pub fn get_worker(&self, id: WorkerId) -> Option<&AppComputeWorker> {
+        for worker in &self.workers {
+            if worker.id == id {
+                return Some(worker);
             }
+        }
+        None
+    }
 
-            let Some(worker) = future::block_on(future::poll_once(task.into_future())) else { continue; };
+    pub fn extract_pipeline<C: ComputeShader>(
+        mut app_compute: ResMut<Self>,
+        pipeline_cache: Res<AppPipelineCache>,
+    ) {
+        let Some(pipeline) = app_compute.pipelines.get(&C::TYPE_UUID) else { return; };
+        if pipeline.is_some() {
+            return;
+        };
 
-            worker_events.send(WorkerEvent::new(worker));
+        let Some(cached_id) = app_compute.cached_pipeline_ids.get(&C::TYPE_UUID) else { return; };
 
-            indices_to_remove.push(idx);
+        let cached_id = cached_id.clone();
+
+        app_compute.pipelines.insert(
+            C::TYPE_UUID,
+            pipeline_cache.get_compute_pipeline(cached_id).cloned(),
+        );
+    }
+
+    pub fn remove_finished_workers(
+        mut app_compute: ResMut<Self>,
+        mut worker_events: EventReader<FinishedWorkerEvent>,
+    ) {
+        for ev in worker_events.iter() {
+            let id = &ev.0;
+
+            app_compute.workers.retain_mut(|worker| worker.id != *id)
+        }
+    }
+
+    pub fn poll_render_device(
+        mut app_compute: ResMut<Self>,
+        mut finished_worker_events: EventWriter<FinishedWorkerEvent>,
+    ) {
+        let mut finished_workers = vec![];
+        for (idx, worker) in app_compute.workers.iter().enumerate() {
+            let Some(index) = &worker.submission_index else { continue; };
+            app_compute
+                .render_device
+                .wgpu_device()
+                .poll(wgpu::MaintainBase::WaitForSubmissionIndex(index.clone()));
+
+            finished_workers.push(idx);
+            finished_worker_events.send(worker.id.into());
         }
 
-        for idx in indices_to_remove {
-            let _ = app_compute.tasks.remove(idx);
+        for idx in finished_workers {
+            app_compute.workers[idx].state = WorkerState::Finished;
         }
     }
 }

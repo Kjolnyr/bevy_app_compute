@@ -1,9 +1,11 @@
-use bevy::{core::cast_slice, prelude::*, render::render_resource::ShaderRef};
+use bevy::{core::cast_slice, prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
-struct SimpleComputeShader;
+#[derive(TypeUuid)]
+#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
+struct SimpleShader;
 
-impl ComputeShader for SimpleComputeShader {
+impl ComputeShader for SimpleShader {
     fn shader() -> ShaderRef {
         "shaders/simple.wgsl".into()
     }
@@ -12,30 +14,32 @@ impl ComputeShader for SimpleComputeShader {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(AppComputePlugin::<SimpleComputeShader>::default())
+        .add_plugin(AppComputePlugin::<SimpleShader>::default())
         .add_system(on_click_compute)
         .run();
 }
 
-fn on_click_compute(
-    buttons: Res<Input<MouseButton>>,
-    app_compute: Res<AppCompute<SimpleComputeShader>>,
-) {
+fn on_click_compute(buttons: Res<Input<MouseButton>>, mut app_compute: ResMut<AppCompute>) {
     if !buttons.just_pressed(MouseButton::Left) {
         return;
     };
 
-    let Some(mut worker) = app_compute.worker() else { return; };
+    let value: f32 = 5.;
 
-    worker.add_uniform(0, "uni", 5f32);
-    worker.add_storage(0, "storage", vec![0f32; 8]);
-    worker.add_staging_buffer("staging", "storage", std::mem::size_of::<f32>() * 8);
-
-    worker.run((8, 1, 1));
+    let worker = app_compute
+        .worker()
+        .add_uniform("value", value)
+        .add_storage("storage", vec![1., 2., 3., 4.])
+        .add_staging_buffer("staging", "storage")
+        .pass::<SimpleShader>([4, 1, 1], &["value", "storage"])
+        .read_staging_buffers()
+        .submit()
+        .map_staging_buffers()
+        .now();
 
     let result = worker.get_data("staging");
 
     let value: &[f32] = cast_slice(&result);
 
-    println!("value: {:?}", value); // [1.0, 5.0, 24.999998, 124.999985, 624.9999, 3124.9993, 15624.996, 78124.98]
+    println!("value: {:?}", value);
 }

@@ -25,3 +25,6 @@ name = "simple"
 
 [[example]]
 name = "async_heavy_work"
+
+[[example]]
+name = "multi_pass"
