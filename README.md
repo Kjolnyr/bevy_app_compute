@@ -44,8 +44,15 @@ struct SimpleComputeWorker;
 impl ComputeWorker for SimpleComputeWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
         let worker = AppComputeWorkerBuilder::new(world)
+            // Add a uniform variable
             .add_uniform("uni", &5.)
+
+            // Add a staging buffer, it will be available from
+            // both CPU and GPU land.
             .add_staging("values", &[1., 2., 3., 4.])
+
+            // Create a compute pass from your compute shader
+            // and define used variables
             .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
             .build();
 
