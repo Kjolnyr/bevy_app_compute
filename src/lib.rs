@@ -1,21 +1,22 @@
-use app_compute::AppCompute;
-use bevy::{
-    prelude::{AssetEvent, Assets, EventReader, Res, ResMut, Shader},
-    reflect::TypeUuid,
-    render::render_resource::{BindGroupLayout, ShaderDefVal, ShaderRef},
-};
+use bevy::prelude::{AssetEvent, Assets, EventReader, Res, ResMut, Shader};
 
 use pipeline_cache::AppPipelineCache;
-use wgpu::PushConstantRange;
 use worker::WorkerId;
 
-mod app_compute;
 mod pipeline_cache;
 mod plugin;
+mod traits;
 mod worker;
+mod worker_builder;
 
 pub mod prelude {
-    pub use crate::{app_compute::AppCompute, plugin::AppComputePlugin, ComputeShader};
+    pub use crate::{
+        plugin::{AppComputePlugin, AppComputeWorkerPlugin},
+        traits::{ComputeShader, ComputeWorker},
+        worker::AppComputeWorker,
+        worker_builder::AppComputeWorkerBuilder,
+        FinishedWorkerEvent,
+    };
 }
 
 pub fn process_pipeline_queue_system(mut pipeline_cache: ResMut<AppPipelineCache>) {
@@ -36,25 +37,6 @@ pub fn extract_shaders(
             }
             AssetEvent::Removed { handle } => pipeline_cache.remove_shader(handle),
         }
-    }
-}
-
-pub trait ComputeShader: TypeUuid + Sized + Send + Sync + 'static {
-    fn shader() -> ShaderRef;
-
-    fn layouts<'a>() -> &'a [BindGroupLayout] {
-        &[]
-    }
-
-    fn shader_defs<'a>() -> &'a [ShaderDefVal] {
-        &[]
-    }
-    fn push_constant_ranges<'a>() -> &'a [PushConstantRange] {
-        &[]
-    }
-
-    fn entry_point<'a>() -> &'a str {
-        "main"
     }
 }
 

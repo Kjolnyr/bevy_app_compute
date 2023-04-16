@@ -11,35 +11,39 @@ impl ComputeShader for SimpleShader {
     }
 }
 
+#[derive(Resource)]
+struct SimpleComputeWorker;
+
+impl ComputeWorker for SimpleComputeWorker {
+    fn build(world: &mut World) -> AppComputeWorker<Self> {
+        let worker = AppComputeWorkerBuilder::new(world)
+            .add_uniform("uni", &5.)
+            .add_staging("values", &[1., 2., 3., 4.])
+            .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
+            .build();
+
+        worker
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(AppComputePlugin::<SimpleShader>::default())
-        .add_system(on_click_compute)
+        .add_plugin(AppComputePlugin)
+        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
+        .add_system(test)
         .run();
 }
 
-fn on_click_compute(buttons: Res<Input<MouseButton>>, mut app_compute: ResMut<AppCompute>) {
-    if !buttons.just_pressed(MouseButton::Left) {
+fn test(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
+    if !compute_worker.available() {
         return;
     };
 
-    let value: f32 = 5.;
+    let values = compute_worker.read("values");
+    let result: &[f32] = cast_slice(&values);
 
-    let worker = app_compute
-        .worker()
-        .add_uniform("value", value)
-        .add_storage("storage", vec![1., 2., 3., 4.])
-        .add_staging_buffer("staging", "storage")
-        .pass::<SimpleShader>([4, 1, 1], &["value", "storage"])
-        .read_staging_buffers()
-        .submit()
-        .map_staging_buffers()
-        .now();
+    compute_worker.write("values", [2., 3., 4., 5.]);
 
-    let result = worker.get_data("staging");
-
-    let value: &[f32] = cast_slice(&result);
-
-    println!("value: {:?}", value);
+    println!("got {:?}", result)
 }

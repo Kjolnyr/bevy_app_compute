@@ -2,7 +2,7 @@ use bevy::{core::cast_slice, prelude::*, reflect::TypeUuid, render::render_resou
 use bevy_app_compute::prelude::*;
 
 #[derive(TypeUuid)]
-#[uuid = "b8420da2-3fa7-4321-87b6-04c00b0d8712"]
+#[uuid = "5a4f7163-88cd-4a59-94c7-fb51abe389b8"]
 struct FirstPassShader;
 
 impl ComputeShader for FirstPassShader {
@@ -12,7 +12,7 @@ impl ComputeShader for FirstPassShader {
 }
 
 #[derive(TypeUuid)]
-#[uuid = "1a17d778-b013-4da0-a65a-7904f8f60274"]
+#[uuid = "7ada0206-7871-404b-b197-5e2477e7073f"]
 struct SecondPassShader;
 
 impl ComputeShader for SecondPassShader {
@@ -21,38 +21,42 @@ impl ComputeShader for SecondPassShader {
     }
 }
 
+#[derive(Resource)]
+struct SimpleComputeWorker;
+
+impl ComputeWorker for SimpleComputeWorker {
+    fn build(world: &mut World) -> AppComputeWorker<Self> {
+        let worker = AppComputeWorkerBuilder::new(world)
+            .add_uniform("value", &3.)
+            .add_storage("input", &[1., 2., 3., 4.])
+            .add_staging("output", &[0f32; 4])
+            .add_pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"]) // add each item + `value` from `input` to `output`
+            .add_pass::<SecondPassShader>([4, 1, 1], &["output"]) // multiply each element of `output` by itself
+            .build();
+
+            // [1. + 3., 2. + 3., 3. + 3., 4. + 3.] = [4., 5., 6., 7.]
+            // [4. * 4., 5. * 5., 6. * 6., 7. * 7.] = [16., 25., 36., 49.]
+
+        worker
+    }
+}
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(AppComputePlugin::<FirstPassShader>::default())
-        .add_plugin(AppComputePlugin::<SecondPassShader>::default())
-        .add_system(on_click_compute)
+        .add_plugin(AppComputePlugin)
+        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
+        .add_system(test)
         .run();
 }
 
-fn on_click_compute(buttons: Res<Input<MouseButton>>, mut app_compute: ResMut<AppCompute>) {
-    if !buttons.just_pressed(MouseButton::Left) {
+fn test(compute_worker: Res<AppComputeWorker<SimpleComputeWorker>>) {
+    if !compute_worker.available() {
         return;
     };
 
-    let value: f32 = 5.;
-    let input_buffer: Vec<f32> = vec![1., 2., 3., 4.];
+    let values = compute_worker.read("output");
+    let result: &[f32] = cast_slice(&values);
 
-    let worker = app_compute
-        .worker()
-        .add_uniform("value", value)
-        .add_storage("input", input_buffer)
-        .add_storage("output", vec![0f32; 4])
-        .add_storage("final", vec![0f32; 4])
-        .add_staging_buffer("staging", "final")
-        .pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"]) // add `value` to each element of `output`
-        .pass::<SecondPassShader>([4, 1, 1], &["output", "final"]) // multiply each element of `output` by itself
-        .read_staging_buffers()
-        .submit()
-        .map_staging_buffers()
-        .now();
-
-    let result = worker.get_data("staging");
-    let value: &[f32] = cast_slice(&result);
-    println!("value: {:?}", value); // [36.0, 49.0, 64.0, 81.0]
+    println!("got {:?}", result) // [16., 25., 36., 49.]
 }
