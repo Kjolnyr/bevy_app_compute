@@ -20,6 +20,7 @@ impl ComputeWorker for SimpleComputeWorker {
             .add_uniform("uni", &5.)
             .add_staging("values", &[1., 2., 3., 4.])
             .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
+            .one_shot()
             .build();
 
         worker
@@ -31,11 +32,21 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugin(AppComputePlugin)
         .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
-        .add_system(test)
+        .add_system(on_click_compute)
+        .add_system(read_data)
         .run();
 }
 
-fn test(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
+fn on_click_compute(
+    buttons: Res<Input<MouseButton>>,
+    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>
+) {
+    if !buttons.just_pressed(MouseButton::Left) { return; }
+
+    compute_worker.execute();
+} 
+
+fn read_data(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
     if !compute_worker.ready() {
         return;
     };
@@ -43,7 +54,7 @@ fn test(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
     let values = compute_worker.read("values");
     let result: &[f32] = cast_slice(&values);
 
-    compute_worker.write("values", &[2., 3., 4., 5.]);
+    compute_worker.write("values", &result);
 
     println!("got {:?}", result)
 }

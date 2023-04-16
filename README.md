@@ -110,6 +110,8 @@ fn my_system(
 }
 ```
 
+(see [simple.rs](https://github.com/kjolnyr/bevy_app_compute/tree/dev/examples/simple.rs))
+
 ### Multiple passes
 
 You can have multiple passes without having to copy data back to the CPU in between:
@@ -129,11 +131,54 @@ let worker = AppComputeWorkerBuilder::new(world)
 
 ```
 
+(see [multi_pass.rs](https://github.com/kjolnyr/bevy_app_compute/tree/dev/examples/multi_pass.rs))
+
+### One shot computes
+
+You can configure your worker to execute only when requested:
+
+```rust
+let worker = AppComputeWorkerBuilder::new(world)
+    .add_uniform("uni", &5.)
+    .add_staging("values", &[1., 2., 3., 4.])
+    .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
+
+    // This `one_shot()` function will configure your worker accordingly
+    .one_shot()
+    .build();
+
+```
+
+Then, you can call `execute()` on your worker when you are ready to execute it:
+
+```rust
+// Execute it only when the left mouse button is pressed.
+fn on_click_compute(
+    buttons: Res<Input<MouseButton>>,
+    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>
+) {
+    if !buttons.just_pressed(MouseButton::Left) { return; }
+
+    compute_worker.execute();
+} 
+```
+
+It will run at the end of the current frame, and you'll be able to read the data in the next frame.
+
+(see [one_shot.rs](https://github.com/kjolnyr/bevy_app_compute/tree/dev/examples/one_shot.rs))
+
 
 ## Examples
 
 See [examples](https://github.com/kjolnyr/bevy_app_compute/tree/main/examples)
 
+
+## Features being worked upon
+
+- Ability to read/write between compute passes.
+- add more options to the api, like deciding `BufferUsages` or size of buffers.
+- Optimization. Right now the code is a complete mess.
+- Tests. This badly needs tests.
 
 ## Bevy version mapping
 

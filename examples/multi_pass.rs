@@ -51,7 +51,7 @@ fn main() {
 }
 
 fn test(compute_worker: Res<AppComputeWorker<SimpleComputeWorker>>) {
-    if !compute_worker.available() {
+    if !compute_worker.ready() {
         return;
     };
 

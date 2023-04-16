@@ -5,7 +5,10 @@ use bevy::{
     core::{cast_slice, Pod},
     prelude::{Res, ResMut, Resource},
     render::{
-        render_resource::{encase::private::WriteInto, Buffer, ComputePipeline, ShaderType},
+        render_resource::{
+            encase::{private::WriteInto, StorageBuffer},
+            Buffer, ComputePipeline, ShaderType,
+        },
         renderer::{RenderDevice, RenderQueue},
     },
     utils::{HashMap, Uuid},
@@ -21,11 +24,18 @@ use crate::{
     worker_builder::AppComputeWorkerBuilder,
 };
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum RunMode {
+    Continuous,
+    OneShot(bool),
+}
+
 #[derive(PartialEq)]
 pub enum WorkerState {
     Created,
     Available,
     Working,
+    FinishedWorking,
 }
 
 #[derive(Clone)]
@@ -62,6 +72,9 @@ impl StaggingBuffers {
 
 /// Struct to manage data transfers from/to the GPU
 /// it also handles the logic of your compute work.
+/// By default, the run mode of the workers is set to [`RunMode::Continuous`]
+/// meaning it will run every frames. If you want to run it deterministically
+/// Set the run mode to [`RunMode::OneShot`]
 #[derive(Resource)]
 pub struct AppComputeWorker<W: ComputeWorker> {
     pub(crate) state: WorkerState,
@@ -77,6 +90,7 @@ pub struct AppComputeWorker<W: ComputeWorker> {
     write_requested: bool,
     write_buffers_mapped: bool,
     read_buffers_mapped: bool,
+    run_mode: RunMode,
     _phantom: PhantomData<W>,
 }
 
@@ -109,6 +123,7 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             write_requested: false,
             write_buffers_mapped: false,
             read_buffers_mapped: false,
+            run_mode: builder.run_mode,
             _phantom: PhantomData::default(),
         }
     }
@@ -241,17 +256,17 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     /// Write data to `target` staging buffer.
-    pub fn write<T: ShaderType + WriteInto + Pod>(&mut self, target: &str, data: T) {
+    pub fn write<T: ShaderType + WriteInto>(&mut self, target: &str, data: &T) {
         let staging_buffer = &self
             .staging_buffers
             .get(target)
             .unwrap_or_else(|| panic!("Unable to find buffer {target} to write into"));
 
-        let binding = [data];
-        let bytes: &[u8] = cast_slice(&binding);
+        let mut buffer = StorageBuffer::new(Vec::new());
+        buffer.write::<T>(data).unwrap();
 
         self.render_queue
-            .write_buffer(&staging_buffer.write, 0, &bytes);
+            .write_buffer(&staging_buffer.write, 0, &buffer.as_ref());
         self.write_requested = true;
     }
 
@@ -264,28 +279,39 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     fn poll(&self) -> bool {
-        let index = &self
+        let Some(index) = &self
             .submission_index
             .clone()
-            .unwrap_or_else(|| panic!("Cound't find a submission index!"));
+            else { return false; };
 
         self.render_device
             .wgpu_device()
             .poll(wgpu::MaintainBase::WaitForSubmissionIndex(index.clone()))
     }
 
-    /// Check if the worker if available for read/write.
-    pub fn available(&self) -> bool {
-        self.state == WorkerState::Available
+    /// Check if the worker is ready to be read from.
+    pub fn ready(&self) -> bool {
+        self.state == WorkerState::FinishedWorking
     }
 
-    
-    fn created(&self) -> bool {
-        self.state == WorkerState::Created
+    /// Tell the worker to execute the compute shader at the end of the current frame
+    pub fn execute(&mut self) {
+        match self.run_mode {
+            RunMode::Continuous => {}
+            RunMode::OneShot(_) => self.run_mode = RunMode::OneShot(true),
+        }
+    }
+
+    fn ready_to_execute(&self) -> bool {
+        (self.state != WorkerState::Working) && (self.run_mode != RunMode::OneShot(false))
     }
 
     pub(crate) fn run(mut worker: ResMut<Self>) {
-        if worker.available() || worker.created() {
+        if worker.ready() {
+            worker.state = WorkerState::Available;
+        }
+
+        if worker.ready_to_execute() {
             if worker.write_requested {
                 worker.write_staging_buffers();
                 worker.write_requested = false;
@@ -300,18 +326,23 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             worker.map_staging_buffers();
         }
 
-        if worker.poll() {
-            worker.state = WorkerState::Available;
+        if worker.run_mode != RunMode::OneShot(false) && worker.poll() {
+            worker.state = WorkerState::FinishedWorking;
             worker.command_encoder = Some(
                 worker
                     .render_device
                     .create_command_encoder(&CommandEncoderDescriptor { label: None }),
             );
+
+            match worker.run_mode {
+                RunMode::Continuous => {}
+                RunMode::OneShot(_) => worker.run_mode = RunMode::OneShot(false),
+            };
         }
     }
 
     pub(crate) fn unmap_all(mut worker: ResMut<Self>) {
-        if !worker.available() || worker.created() {
+        if !worker.ready_to_execute() {
             return;
         };
 
