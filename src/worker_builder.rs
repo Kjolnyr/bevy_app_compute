@@ -16,7 +16,7 @@ use wgpu::{util::BufferInitDescriptor, BufferDescriptor, BufferUsages};
 use crate::{
     pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId},
     traits::{ComputeShader, ComputeWorker},
-    worker::{AppComputeWorker, ComputePass, StaggingBuffers, RunMode},
+    worker::{AppComputeWorker, ComputePass, RunMode, StaggingBuffers},
 };
 
 /// A builder struct to build [`AppComputeWorker<W>`]

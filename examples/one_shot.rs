@@ -39,12 +39,14 @@ fn main() {
 
 fn on_click_compute(
     buttons: Res<Input<MouseButton>>,
-    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>
+    mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>,
 ) {
-    if !buttons.just_pressed(MouseButton::Left) { return; }
+    if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
 
     compute_worker.execute();
-} 
+}
 
 fn read_data(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
     if !compute_worker.ready() {
