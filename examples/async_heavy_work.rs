@@ -35,10 +35,7 @@ fn test(buttons: Res<Input<MouseButton>>, mut app_compute: ResMut<AppCompute>) {
         .map_staging_buffers();
 }
 
-fn receive_data(
-    app_compute: Res<AppCompute>,
-    mut worker_events: EventReader<FinishedWorkerEvent>
-) {
+fn receive_data(app_compute: Res<AppCompute>, mut worker_events: EventReader<FinishedWorkerEvent>) {
     for ev in &mut worker_events.iter() {
         let id = &ev.0;
 
