@@ -1,3 +1,5 @@
+//! Example showing how to have multiple passes
+
 use bevy::{core::cast_slice, prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 

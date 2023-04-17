@@ -71,9 +71,9 @@ impl StaggingBuffers {
 
 /// Struct to manage data transfers from/to the GPU
 /// it also handles the logic of your compute work.
-/// By default, the run mode of the workers is set to [`RunMode::Continuous`]
+/// By default, the run mode of the workers is set to [`RunMode`]
 /// meaning it will run every frames. If you want to run it deterministically
-/// Set the run mode to [`RunMode::OneShot`]
+/// Set the run mode to [`RunMode`]
 #[derive(Resource)]
 pub struct AppComputeWorker<W: ComputeWorker> {
     pub(crate) state: WorkerState,
