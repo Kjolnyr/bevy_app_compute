@@ -2,6 +2,7 @@ use core::panic;
 use std::marker::PhantomData;
 
 use bevy::{
+    core::{cast_slice, Pod},
     prelude::{Res, ResMut, Resource},
     render::{
         render_resource::{
@@ -237,8 +238,8 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         self
     }
 
-    /// Read data from `target` staging buffer.
-    pub fn read(&self, target: &str) -> Vec<u8> {
+    /// Read data from `target` staging buffer, return raw bytes.
+    pub fn read_raw(&self, target: &str) -> Vec<u8> {
         let staging_buffer = &self
             .staging_buffers
             .get(target)
@@ -252,6 +253,34 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             .to_vec();
 
         result
+    }
+
+    /// Read data from `target` staging buffer, return a vector of `B: Pod`
+    pub fn read<B: Pod>(&self, target: &str) -> Vec<B> {
+        let staging_buffer = &self
+            .staging_buffers
+            .get(target)
+            .unwrap_or_else(|| panic!("Couldn't find staging_buffer {target}"));
+
+        let buffer_view = staging_buffer.read.slice(..).get_mapped_range();
+
+        let bytes = buffer_view.as_ref();
+
+        cast_slice(bytes).to_vec()
+    }
+
+    /// Read data from `target` staging buffer, return a single `B: Pod`
+    pub fn read_one<B: Pod>(&self, target: &str) -> B {
+        let staging_buffer = &self
+            .staging_buffers
+            .get(target)
+            .unwrap_or_else(|| panic!("Couldn't find staging_buffer {target}"));
+
+        let buffer_view = staging_buffer.read.slice(..).get_mapped_range();
+
+        let bytes = buffer_view.as_ref();
+
+        cast_slice(bytes).to_vec()[0]
     }
 
     /// Write data to `target` staging buffer.
