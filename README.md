@@ -13,7 +13,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_app_compute = { git = "https://github.com/Kjolnyr/bevy_app_compute.git", branch = "dev" }
+bevy_app_compute = "0.10.2"
 ```
 
 ## Usage
