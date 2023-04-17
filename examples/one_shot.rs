@@ -55,9 +55,9 @@ fn read_data(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) 
         return;
     };
 
-    let result: Vec<f32> = compute_worker.read("values");
+    let result: Vec<f32> = compute_worker.read("values").unwrap();
 
-    compute_worker.write("values", &result);
+    compute_worker.write("values", &result).ok();
 
     println!("got {:?}", result)
 }

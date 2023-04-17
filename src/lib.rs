@@ -9,6 +9,7 @@ mod plugin;
 mod traits;
 mod worker;
 mod worker_builder;
+mod error;
 
 /// Helper module to import most used elements.
 pub mod prelude {

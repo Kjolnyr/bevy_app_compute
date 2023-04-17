@@ -19,6 +19,7 @@ use wgpu::{
 };
 
 use crate::{
+    error::{Error, Result},
     pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId},
     traits::ComputeWorker,
     worker_builder::AppComputeWorkerBuilder,
@@ -130,14 +131,14 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
 }
 
 impl<W: ComputeWorker> AppComputeWorker<W> {
-    fn dispatch_passes(&mut self) -> bool {
+    fn dispatch_passes(&mut self) -> Result<()> {
         for compute_pass in &mut self.passes {
             let mut entries = vec![];
             for (index, var) in compute_pass.vars.iter().enumerate() {
-                let buffer = self
+                let Some(buffer) = self
                     .buffers
                     .get(var)
-                    .unwrap_or_else(|| panic!("Couldn't find {var} in self.buffers."));
+                    else { return Err(Error::BufferNotFound(var.to_owned())) };
 
                 let entry = BindGroupEntry {
                     binding: index as u32,
@@ -147,14 +148,14 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 entries.push(entry);
             }
 
-            let maybe_pipeline = self
+            let Some(maybe_pipeline) = self
                 .pipelines
                 .get(&compute_pass.shader_uuid)
-                .unwrap_or_else(|| panic!("No pipeline in worker.pipelines"));
+                else { return Err(Error::PipelinesEmpty) };
 
             let Some(pipeline) = maybe_pipeline else {
                 eprintln!("Pipeline isn't ready yet."); 
-                return false;
+                return Err(Error::PipelineNotReady);
             };
 
             let bind_group_layout = pipeline.get_bind_group_layout(0);
@@ -164,7 +165,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 entries: &entries,
             });
 
-            let Some(encoder) = &mut self.command_encoder else { panic!("Unable to unwrap encoder!"); };
+            let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone) };
             {
                 let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor { label: None });
                 cpass.set_pipeline(&pipeline);
@@ -176,28 +177,30 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 )
             }
         }
-        true
+        Ok(())
     }
 
-    fn write_staging_buffers(&mut self) -> &mut Self {
+    fn write_staging_buffers(&mut self) -> Result<&mut Self> {
         for (name, staging_buffer) in &self.staging_buffers {
-            let Some(encoder) = &mut self.command_encoder else { return self; };
-            let buffer = self
+            let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone); };
+            let Some(buffer) = self
                 .buffers
                 .get(name)
-                .unwrap_or_else(|| panic!("Unable to find buffer {name}"));
+                else { return Err(Error::BufferNotFound(name.to_owned()))};
+
             encoder.copy_buffer_to_buffer(&staging_buffer.write, 0, &buffer, 0, buffer.size());
         }
-        self
+        Ok(self)
     }
 
-    fn read_staging_buffers(&mut self) -> &mut Self {
+    fn read_staging_buffers(&mut self) -> Result<&mut Self> {
         for (name, staging_buffer) in &self.staging_buffers {
-            let Some(encoder) = &mut self.command_encoder else { return self; };
-            let buffer = self
+            let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone); };
+            let Some(buffer) = self
                 .buffers
                 .get(name)
-                .unwrap_or_else(|| panic!("Unable to find buffer {name}"));
+                else { return Err(Error::BufferNotFound(name.to_owned()))};
+
             encoder.copy_buffer_to_buffer(
                 &buffer,
                 0,
@@ -206,7 +209,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 staging_buffer.read.size(),
             );
         }
-        self
+        Ok(self)
     }
 
     fn map_staging_buffers(&mut self) -> &mut Self {
@@ -239,11 +242,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     /// Read data from `target` staging buffer, return raw bytes.
-    pub fn read_raw(&self, target: &str) -> Vec<u8> {
-        let staging_buffer = &self
+    pub fn read_raw(&self, target: &str) -> Result<Vec<u8>> {
+        let Some(staging_buffer) = &self
             .staging_buffers
             .get(target)
-            .unwrap_or_else(|| panic!("Couldn't find staging_buffer {target}"));
+            else { return Err(Error::StagingBufferNotFound(target.to_owned()))};
 
         let result = staging_buffer
             .read
@@ -252,43 +255,43 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             .as_ref()
             .to_vec();
 
-        result
+        Ok(result)
     }
 
     /// Read data from `target` staging buffer, return a vector of `B: Pod`
-    pub fn read<B: Pod>(&self, target: &str) -> Vec<B> {
-        let staging_buffer = &self
+    pub fn read<B: Pod>(&self, target: &str) -> Result<Vec<B>> {
+        let Some(staging_buffer) = &self
             .staging_buffers
             .get(target)
-            .unwrap_or_else(|| panic!("Couldn't find staging_buffer {target}"));
+            else { return Err(Error::StagingBufferNotFound(target.to_owned())) };
 
         let buffer_view = staging_buffer.read.slice(..).get_mapped_range();
 
         let bytes = buffer_view.as_ref();
 
-        cast_slice(bytes).to_vec()
+        Ok(cast_slice(bytes).to_vec())
     }
 
     /// Read data from `target` staging buffer, return a single `B: Pod`
-    pub fn read_one<B: Pod>(&self, target: &str) -> B {
-        let staging_buffer = &self
+    pub fn read_one<B: Pod>(&self, target: &str) -> Result<B> {
+        let Some(staging_buffer) = &self
             .staging_buffers
             .get(target)
-            .unwrap_or_else(|| panic!("Couldn't find staging_buffer {target}"));
+            else { return Err(Error::StagingBufferNotFound(target.to_owned())) };
 
         let buffer_view = staging_buffer.read.slice(..).get_mapped_range();
 
         let bytes = buffer_view.as_ref();
 
-        cast_slice(bytes).to_vec()[0]
+        Ok(cast_slice(bytes).to_vec()[0])
     }
 
     /// Write data to `target` staging buffer.
-    pub fn write<T: ShaderType + WriteInto>(&mut self, target: &str, data: &T) {
-        let staging_buffer = &self
+    pub fn write<T: ShaderType + WriteInto>(&mut self, target: &str, data: &T) -> Result<()> {
+        let Some(staging_buffer) = &self
             .staging_buffers
             .get(target)
-            .unwrap_or_else(|| panic!("Unable to find buffer {target} to write into"));
+            else { return Err(Error::StagingBufferNotFound(target.to_owned())) };
 
         let mut buffer = StorageBuffer::new(Vec::new());
         buffer.write::<T>(data).unwrap();
@@ -296,6 +299,8 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         self.render_queue
             .write_buffer(&staging_buffer.write, 0, &buffer.as_ref());
         self.write_requested = true;
+
+        Ok(())
     }
 
     fn submit(&mut self) -> &mut Self {
@@ -345,8 +350,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 worker.write_requested = false;
             }
 
-            if !worker.dispatch_passes() {
-                return;
+            if let Err(e) = worker.dispatch_passes() {
+                match e {
+                    Error::PipelineNotReady => return,
+                    _ => panic!("{:?}", e),
+                }
             }
 
             worker.read_staging_buffers();
