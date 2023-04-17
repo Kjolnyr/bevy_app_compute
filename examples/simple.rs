@@ -1,6 +1,6 @@
 //! Simple, hello world example to show the basic concept
 
-use bevy::{core::cast_slice, prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
+use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
 #[derive(TypeUuid)]
