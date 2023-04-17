@@ -346,7 +346,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
         if worker.ready_to_execute() {
             if worker.write_requested {
-                worker.write_staging_buffers();
+                worker.write_staging_buffers().unwrap();
                 worker.write_requested = false;
             }
 
@@ -357,7 +357,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 }
             }
 
-            worker.read_staging_buffers();
+            worker.read_staging_buffers().unwrap();
             worker.submit();
             worker.map_staging_buffers();
         }

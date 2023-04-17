@@ -4,12 +4,12 @@ use bevy::prelude::{AssetEvent, Assets, EventReader, Res, ResMut, Shader};
 
 use pipeline_cache::AppPipelineCache;
 
+mod error;
 mod pipeline_cache;
 mod plugin;
 mod traits;
 mod worker;
 mod worker_builder;
-mod error;
 
 /// Helper module to import most used elements.
 pub mod prelude {
