@@ -16,7 +16,7 @@ use wgpu::{util::BufferInitDescriptor, BufferDescriptor, BufferUsages};
 use crate::{
     pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId},
     traits::{ComputeShader, ComputeWorker},
-    worker::{AppComputeWorker, ComputePass, StaggingBuffers},
+    worker::{AppComputeWorker, ComputePass, RunMode, StaggingBuffers},
 };
 
 /// A builder struct to build [`AppComputeWorker<W>`]
@@ -27,6 +27,7 @@ pub struct AppComputeWorkerBuilder<'a, W: ComputeWorker> {
     pub(crate) buffers: HashMap<String, Buffer>,
     pub(crate) staging_buffers: HashMap<String, StaggingBuffers>,
     pub(crate) passes: Vec<ComputePass>,
+    pub(crate) run_mode: RunMode,
     _phantom: PhantomData<W>,
 }
 
@@ -41,6 +42,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
             buffers: HashMap::default(),
             staging_buffers: HashMap::default(),
             passes: vec![],
+            run_mode: RunMode::Continuous,
             _phantom: PhantomData::default(),
         }
     }
@@ -223,6 +225,19 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
             vars: vars.into_iter().map(|a| String::from(*a)).collect(),
             shader_uuid: S::TYPE_UUID,
         });
+        self
+    }
+
+    /// The worker will run every frames.
+    /// This is the default mode.
+    pub fn continuous(&mut self) -> &mut Self {
+        self.run_mode = RunMode::Continuous;
+        self
+    }
+
+    /// The worker will run when requested.
+    pub fn one_shot(&mut self) -> &mut Self {
+        self.run_mode = RunMode::OneShot(false);
         self
     }
 

@@ -20,7 +20,6 @@ impl Plugin for AppComputePlugin {
     }
 }
 
-
 /// Plugin to initialise your [`AppComputeWorker<W>`] structs.
 pub struct AppComputeWorkerPlugin<W: ComputeWorker> {
     _phantom: PhantomData<W>,
@@ -40,11 +39,10 @@ impl<W: ComputeWorker> Plugin for AppComputeWorkerPlugin<W> {
 
         app.insert_resource(worker)
             .add_system(AppComputeWorker::<W>::extract_pipelines)
-            .add_system(AppComputeWorker::<W>::run.in_base_set(CoreSet::PostUpdate))
-            .add_system(
-                AppComputeWorker::<W>::unmap_all
-                    .in_base_set(CoreSet::PostUpdate)
-                    .before(AppComputeWorker::<W>::run),
+            .add_systems(
+                (AppComputeWorker::<W>::unmap_all, AppComputeWorker::<W>::run)
+                    .chain()
+                    .in_base_set(CoreSet::PostUpdate),
             );
     }
 }

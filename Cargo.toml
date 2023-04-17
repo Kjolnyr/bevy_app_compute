@@ -24,3 +24,6 @@ name = "simple"
 
 [[example]]
 name = "multi_pass"
+
+[[example]]
+name = "one_shot"

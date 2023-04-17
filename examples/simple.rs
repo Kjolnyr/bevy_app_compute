@@ -1,3 +1,5 @@
+//! Simple, hello world example to show the basic concept
+
 use bevy::{core::cast_slice, prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
@@ -36,14 +38,14 @@ fn main() {
 }
 
 fn test(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
-    if !compute_worker.available() {
+    if !compute_worker.ready() {
         return;
     };
 
     let values = compute_worker.read("values");
     let result: &[f32] = cast_slice(&values);
 
-    compute_worker.write("values", [2., 3., 4., 5.]);
+    compute_worker.write("values", &[2., 3., 4., 5.]);
 
     println!("got {:?}", result)
 }
