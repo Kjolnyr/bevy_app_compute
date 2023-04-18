@@ -4,6 +4,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     BufferNotFound(String),
     StagingBufferNotFound(String),
+    InvalidStep(String),
     PipelinesEmpty,
     PipelineNotReady,
     EncoderIsNone,
@@ -19,6 +20,7 @@ impl std::fmt::Display for Error {
             Error::PipelinesEmpty => {
                 write!(f, "Missing pipelines. Have you added your shader plugins?")
             }
+            Error::InvalidStep(step) => write!(f, "Invalid step `{step}`."),
             Error::PipelineNotReady => write!(f, "Pipeline isn't ready yet."),
             Error::EncoderIsNone => write!(f, "The command encoder hasn't been initialized."),
         }
