@@ -101,9 +101,9 @@ fn my_system(
         return;
     };
 
-    let result: Vec<f32> = compute_worker.read("values");
+    let result: Vec<f32> = compute_worker.read_vec("values");
 
-    compute_worker.write("values", [2., 3., 4., 5.]);
+    compute_worker.write_slice("values", [2., 3., 4., 5.]);
 
     println!("got {:?}", result)
 }
