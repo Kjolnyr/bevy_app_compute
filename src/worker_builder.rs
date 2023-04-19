@@ -16,7 +16,7 @@ use wgpu::{util::BufferInitDescriptor, BufferDescriptor, BufferUsages};
 use crate::{
     pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId},
     traits::{ComputeShader, ComputeWorker},
-    worker::{AppComputeWorker, ComputePass, RunMode, StaggingBuffers, Step},
+    worker::{AppComputeWorker, ComputePass, RunMode, Step},
 };
 
 /// A builder struct to build [`AppComputeWorker<W>`]
@@ -25,7 +25,7 @@ pub struct AppComputeWorkerBuilder<'a, W: ComputeWorker> {
     pub(crate) world: &'a mut World,
     pub(crate) cached_pipeline_ids: HashMap<Uuid, CachedAppComputePipelineId>,
     pub(crate) buffers: HashMap<String, Buffer>,
-    pub(crate) staging_buffers: HashMap<String, StaggingBuffers>,
+    pub(crate) staging_buffers: HashMap<String, Buffer>,
     pub(crate) steps: Vec<Step>,
     pub(crate) run_mode: RunMode,
     _phantom: PhantomData<W>,
@@ -49,6 +49,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
     /// Add a new uniform buffer to the worker, and fill it with `uniform`.
     pub fn add_uniform<T: ShaderType + WriteInto>(&mut self, name: &str, uniform: &T) -> &mut Self {
+        T::assert_uniform_compat();
         let mut buffer = UniformBuffer::new(Vec::new());
         buffer.write::<T>(uniform).unwrap();
 
@@ -111,14 +112,18 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
     /// The buffer will be filled with `data`
     pub fn add_staging<T: ShaderType + WriteInto>(&mut self, name: &str, data: &T) -> &mut Self {
         self.add_rw_storage(name, data);
-
         let buffer = self.buffers.get(name).unwrap();
 
         let render_device = self.world.resource::<RenderDevice>();
 
         self.staging_buffers.insert(
             name.to_owned(),
-            StaggingBuffers::new(&render_device, buffer.size()),
+            render_device.create_buffer(&BufferDescriptor {
+                label: Some(name),
+                size: buffer.size(),
+                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+                mapped_at_creation: true,
+            }),
         );
 
         self
@@ -186,7 +191,12 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         self.staging_buffers.insert(
             name.to_owned(),
-            StaggingBuffers::new(&render_device, buffer.size()),
+            render_device.create_buffer(&BufferDescriptor {
+                label: Some(name),
+                size: buffer.size(),
+                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+                mapped_at_creation: true,
+            }),
         );
 
         self

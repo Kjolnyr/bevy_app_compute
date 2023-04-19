@@ -1,21 +1,18 @@
 use core::panic;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Deref};
 
 use bevy::{
     core::{cast_slice, Pod},
     prelude::{Res, ResMut, Resource},
     render::{
-        render_resource::{
-            encase::{private::WriteInto, StorageBuffer},
-            Buffer, ComputePipeline, ShaderType,
-        },
+        render_resource::{Buffer, ComputePipeline},
         renderer::{RenderDevice, RenderQueue},
     },
     utils::{HashMap, Uuid},
 };
 use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, BufferDescriptor, BufferUsages, CommandEncoder,
-    CommandEncoderDescriptor, ComputePassDescriptor,
+    BindGroupDescriptor, BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
+    ComputePassDescriptor,
 };
 
 use crate::{
@@ -52,35 +49,6 @@ pub(crate) struct ComputePass {
     pub(crate) shader_uuid: Uuid,
 }
 
-#[derive(Clone)]
-pub(crate) struct StaggingBuffers {
-    read: Buffer,
-    read_mapped: bool,
-    write: Buffer,
-    write_mapped: bool,
-}
-
-impl StaggingBuffers {
-    pub(crate) fn new<'a>(render_device: &'a RenderDevice, size: u64) -> Self {
-        Self {
-            read: render_device.create_buffer(&BufferDescriptor {
-                label: None,
-                size,
-                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            }),
-            read_mapped: false,
-            write: render_device.create_buffer(&BufferDescriptor {
-                label: None,
-                size,
-                usage: BufferUsages::COPY_SRC | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            }),
-            write_mapped: false,
-        }
-    }
-}
-
 /// Struct to manage data transfers from/to the GPU
 /// it also handles the logic of your compute work.
 /// By default, the run mode of the workers is set to continuous,
@@ -94,10 +62,9 @@ pub struct AppComputeWorker<W: ComputeWorker> {
     cached_pipeline_ids: HashMap<Uuid, CachedAppComputePipelineId>,
     pipelines: HashMap<Uuid, Option<ComputePipeline>>,
     buffers: HashMap<String, Buffer>,
-    staging_buffers: HashMap<String, StaggingBuffers>,
+    staging_buffers: HashMap<String, Buffer>,
     steps: Vec<Step>,
     command_encoder: Option<CommandEncoder>,
-    write_requested: bool,
     run_mode: RunMode,
     _phantom: PhantomData<W>,
 }
@@ -127,7 +94,6 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             staging_buffers: builder.staging_buffers.clone(),
             steps: builder.steps.clone(),
             command_encoder,
-            write_requested: false,
             run_mode: builder.run_mode,
             _phantom: PhantomData::default(),
         }
@@ -213,20 +179,6 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     #[inline]
-    fn write_staging_buffers(&mut self) -> Result<&mut Self> {
-        for (name, staging_buffer) in &self.staging_buffers {
-            let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone); };
-            let Some(buffer) = self
-                .buffers
-                .get(name)
-                else { return Err(Error::BufferNotFound(name.to_owned()))};
-
-            encoder.copy_buffer_to_buffer(&staging_buffer.write, 0, &buffer, 0, buffer.size());
-        }
-        Ok(self)
-    }
-
-    #[inline]
     fn read_staging_buffers(&mut self) -> Result<&mut Self> {
         for (name, staging_buffer) in &self.staging_buffers {
             let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone); };
@@ -235,13 +187,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 .get(name)
                 else { return Err(Error::BufferNotFound(name.to_owned()))};
 
-            encoder.copy_buffer_to_buffer(
-                &buffer,
-                0,
-                &staging_buffer.read,
-                0,
-                staging_buffer.read.size(),
-            );
+            encoder.copy_buffer_to_buffer(&buffer, 0, &staging_buffer, 0, staging_buffer.size());
         }
         Ok(self)
     }
@@ -249,8 +195,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     #[inline]
     fn map_staging_buffers(&mut self) -> &mut Self {
         for (_, staging_buffer) in self.staging_buffers.iter_mut() {
-            let read_buffer_slice = staging_buffer.read.slice(..);
-            let write_buffer_slice = staging_buffer.write.slice(..);
+            let read_buffer_slice = staging_buffer.slice(..);
 
             read_buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 let err = result.err();
@@ -259,87 +204,101 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                     panic!("{}", some_err.to_string());
                 }
             });
-
-            staging_buffer.read_mapped = true;
-
-            if self.write_requested {
-                write_buffer_slice.map_async(wgpu::MapMode::Write, move |result| {
-                    let err = result.err();
-                    if err.is_some() {
-                        let some_err = err.unwrap();
-                        panic!("{}", some_err.to_string());
-                    }
-                });
-                staging_buffer.write_mapped = true;
-            }
         }
         self
     }
 
     /// Read data from `target` staging buffer, return raw bytes
     #[inline]
-    pub fn read_raw(&self, target: &str) -> Result<Vec<u8>> {
+    pub fn try_read_raw<'a>(&'a self, target: &str) -> Result<(impl Deref<Target = [u8]> + 'a)> {
         let Some(staging_buffer) = &self
             .staging_buffers
             .get(target)
             else { return Err(Error::StagingBufferNotFound(target.to_owned()))};
 
-        let result = staging_buffer
-            .read
-            .slice(..)
-            .get_mapped_range()
-            .as_ref()
-            .to_vec();
+        let result = staging_buffer.slice(..).get_mapped_range();
 
         Ok(result)
     }
 
-    /// Read data from `target` staging buffer, return a vector of `B: Pod`
+    /// Read data from `target` staging buffer, return raw bytes
+    /// Panics on error.
     #[inline]
-    pub fn read<B: Pod>(&self, target: &str) -> Result<Vec<B>> {
-        let Some(staging_buffer) = &self
-            .staging_buffers
-            .get(target)
-            else { return Err(Error::StagingBufferNotFound(target.to_owned())) };
-
-        let buffer_view = staging_buffer.read.slice(..).get_mapped_range();
-
-        let bytes = buffer_view.as_ref();
-
-        Ok(cast_slice(bytes).to_vec())
+    pub fn read_raw<'a>(&'a self, target: &str) -> (impl Deref<Target = [u8]> + 'a) {
+        self.try_read_raw(target).unwrap()
     }
 
-    /// Read data from `target` staging buffer, return a single `B: Pod`
+    /// Try Read data from `target` staging buffer, return a single `B: Pod`
     #[inline]
-    pub fn read_one<B: Pod>(&self, target: &str) -> Result<B> {
-        let Some(staging_buffer) = &self
-            .staging_buffers
-            .get(target)
-            else { return Err(Error::StagingBufferNotFound(target.to_owned())) };
-
-        let buffer_view = staging_buffer.read.slice(..).get_mapped_range();
-
-        let bytes = buffer_view.as_ref();
-
-        Ok(cast_slice(bytes).to_vec()[0])
+    pub fn try_read<B: Pod>(&self, target: &str) -> Result<B> {
+        let bytes = self.try_read_raw(target)?;
+        Ok(cast_slice(&bytes).to_vec()[0])
     }
 
-    /// Write data to `target` staging buffer.
+    /// Try Read data from `target` staging buffer, return a single `B: Pod`
+    /// In case of error, this function will panic.
     #[inline]
-    pub fn write<T: ShaderType + WriteInto>(&mut self, target: &str, data: &T) -> Result<()> {
-        let Some(staging_buffer) = &self
-            .staging_buffers
+    pub fn read<B: Pod>(&self, target: &str) -> B {
+        self.try_read(target).unwrap()
+    }
+
+    /// Try Read data from `target` staging buffer, return a vector of `B: Pod`
+    #[inline]
+    pub fn try_read_slice<B: Pod>(&self, target: &str) -> Result<Vec<B>> {
+        let bytes = self.try_read_raw(target)?;
+        Ok(cast_slice(&bytes).to_vec())
+    }
+
+    /// Try Read data from `target` staging buffer, return a vector of `B: Pod`
+    /// In case of error, this function will panic.
+    #[inline]
+    pub fn read_slice<B: Pod>(&self, target: &str) -> Vec<B> {
+        self.try_read_slice(target).unwrap()
+    }
+
+    /// Write data to `target` buffer.
+    #[inline]
+    pub fn try_write<T: Pod>(&mut self, target: &str, data: T) -> Result<()> {
+        let Some(buffer) = &self
+            .buffers
             .get(target)
-            else { return Err(Error::StagingBufferNotFound(target.to_owned())) };
+            else { return Err(Error::BufferNotFound(target.to_owned())) };
 
-        let mut buffer = StorageBuffer::new(Vec::new());
-        buffer.write::<T>(data).unwrap();
+        let binding = [data];
+        let bytes: &[u8] = bytemuck::cast_slice(&binding);
 
-        self.render_queue
-            .write_buffer(&staging_buffer.write, 0, &buffer.as_ref());
-        self.write_requested = true;
+        self.render_queue.write_buffer(buffer, 0, bytes);
 
         Ok(())
+    }
+
+    /// Write data to `target` buffer.
+    /// In case of error, this function will panic.
+    #[inline]
+    pub fn write<T: Pod>(&mut self, target: &str, data: T) {
+        self.try_write(target, data).unwrap()
+    }
+
+    /// Write data slice to `target` buffer.
+    #[inline]
+    pub fn try_write_slice<T: Pod>(&mut self, target: &str, data: &[T]) -> Result<()> {
+        let Some(buffer) = &self
+            .buffers
+            .get(target)
+            else { return Err(Error::BufferNotFound(target.to_owned())) };
+
+        let bytes: &[u8] = bytemuck::cast_slice(&data);
+
+        self.render_queue.write_buffer(buffer, 0, bytes);
+
+        Ok(())
+    }
+
+    /// Write data slice to `target` buffer.
+    /// In case of error, this function will panic.
+    #[inline]
+    pub fn write_slice<T: Pod>(&mut self, target: &str, data: &[T]) {
+        self.try_write_slice(target, data).unwrap()
     }
 
     fn submit(&mut self) -> &mut Self {
@@ -382,11 +341,6 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         }
 
         if worker.ready_to_execute() {
-            if worker.write_requested {
-                worker.write_staging_buffers().unwrap();
-                worker.write_requested = false;
-            }
-
             // Workaround for interior mutability
             for i in 0..worker.steps.len() {
                 match worker.steps[i] {
@@ -422,15 +376,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         };
 
         for (_, buffer) in &mut worker.staging_buffers {
-            if buffer.read_mapped {
-                buffer.read.unmap();
-                buffer.read_mapped = false;
-            }
-
-            if buffer.write_mapped {
-                buffer.write.unmap();
-                buffer.write_mapped = false;
-            }
+            buffer.unmap();
         }
     }
 

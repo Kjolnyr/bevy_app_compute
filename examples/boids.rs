@@ -16,16 +16,15 @@ use bytemuck::Zeroable;
 
 use rand::distributions::{Distribution, Uniform};
 
-// In debug mode, don't go over 1_500
-//const NUM_BOIDS: u32 = 1_500;
+// Debug mode
+const NUM_BOIDS: u32 = 100;
 
-// In release mode, this is totally ok.
-const NUM_BOIDS: u32 = 15_000;
+// Release mode
+//const NUM_BOIDS: u32 = 15_000;
 
 #[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 struct Params {
-    delta_t: f32,
     rule_1_distance: f32,
     rule_2_distance: f32,
     rule_3_distance: f32,
@@ -56,7 +55,6 @@ struct BoidWorker;
 impl ComputeWorker for BoidWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
         let params = Params {
-            delta_t: 0.04f32,
             rule_1_distance: 0.1,
             rule_2_distance: 0.025,
             rule_3_distance: 0.025,
@@ -72,15 +70,19 @@ impl ComputeWorker for BoidWorker {
         for _ in 0..NUM_BOIDS {
             initial_boids_data.push(Boid {
                 pos: Vec2::new(unif.sample(&mut rng), unif.sample(&mut rng)),
-                vel: Vec2::new(unif.sample(&mut rng) * 0.001, unif.sample(&mut rng) * 0.001),
+                vel: Vec2::new(unif.sample(&mut rng) * 0.1, unif.sample(&mut rng) * 0.1),
             });
         }
 
         AppComputeWorkerBuilder::new(world)
             .add_uniform("params", &params)
+            .add_uniform("delta_time", &0.004f32)
             .add_staging("boids_src", &initial_boids_data)
             .add_staging("boids_dst", &initial_boids_data)
-            .add_pass::<BoidsShader>([NUM_BOIDS, 1, 1], &["params", "boids_src", "boids_dst"])
+            .add_pass::<BoidsShader>(
+                [NUM_BOIDS, 1, 1],
+                &["params", "delta_time", "boids_src", "boids_dst"],
+            )
             .add_swap("boids_src", "boids_dst")
             .build()
     }
@@ -109,10 +111,20 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let boid_mesh = meshes.add(shape::RegularPolygon::new(3., 3).into());
+    let boid_mesh = meshes.add(shape::RegularPolygon::new(5., 3).into());
     let boid_material = materials.add(Color::ANTIQUE_WHITE.into());
 
-    for i in 0..NUM_BOIDS {
+    // First boid in red, so we can follow it easily
+    commands.spawn((
+        BoidEntity(0),
+        MaterialMesh2dBundle {
+            mesh: Mesh2dHandle(boid_mesh.clone()),
+            material: materials.add(Color::ORANGE_RED.into()),
+            ..Default::default()
+        },
+    ));
+
+    for i in 1..NUM_BOIDS {
         commands.spawn((
             BoidEntity(i as usize),
             MaterialMesh2dBundle {
@@ -125,7 +137,8 @@ fn setup(
 }
 
 fn move_entities(
-    worker: Res<AppComputeWorker<BoidWorker>>,
+    time: Res<Time>,
+    mut worker: ResMut<AppComputeWorker<BoidWorker>>,
     q_window: Query<&Window, With<PrimaryWindow>>,
     mut q_boid: Query<(&mut Transform, &BoidEntity), With<BoidEntity>>,
 ) {
@@ -135,16 +148,19 @@ fn move_entities(
 
     let window = q_window.single();
 
-    let boids: Vec<Boid> = worker.read("boids_dst").unwrap();
+    let boids: Vec<Boid> = worker.read_slice("boids_dst");
 
-    q_boid.par_iter_mut().for_each_mut(|(mut transform, boid_entity)| {
+    worker.write("delta_time", time.delta_seconds());
 
-        let world_pos = Vec2::new(
-            (window.width() / 2.) * (boids[boid_entity.0].pos.x * 2. - 1.),
-            (window.height() / 2.) * (boids[boid_entity.0].pos.y * 2. - 1.),
-        );
+    q_boid
+        .par_iter_mut()
+        .for_each_mut(|(mut transform, boid_entity)| {
+            let world_pos = Vec2::new(
+                (window.width() / 2.) * (boids[boid_entity.0].pos.x),
+                (window.height() / 2.) * (boids[boid_entity.0].pos.y),
+            );
 
-        transform.translation = world_pos.extend(0.);
-
-    });
+            transform.translation = world_pos.extend(0.);
+            transform.look_to(Vec3::Z, boids[boid_entity.0].vel.extend(0.));
+        });
 }
