@@ -1,6 +1,6 @@
 //! Simple, hello world example to show the basic concept
 
-use bevy::{core::cast_slice, prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
+use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
 #[derive(TypeUuid)]
@@ -42,9 +42,9 @@ fn test(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
         return;
     };
 
-    let result: Vec<f32> = compute_worker.read("values");
+    let result: Vec<f32> = compute_worker.read_vec("values");
 
-    compute_worker.write("values", &[2., 3., 4., 5.]);
+    compute_worker.write_slice::<f32>("values", &[2., 3., 4., 5.]);
 
     println!("got {:?}", result)
 }

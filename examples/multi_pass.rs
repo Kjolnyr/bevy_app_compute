@@ -1,6 +1,6 @@
 //! Example showing how to have multiple passes
 
-use bevy::{core::cast_slice, prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
+use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
 #[derive(TypeUuid)]
@@ -57,7 +57,7 @@ fn test(compute_worker: Res<AppComputeWorker<SimpleComputeWorker>>) {
         return;
     };
 
-    let result: Vec<f32> = compute_worker.read("output");
+    let result: Vec<f32> = compute_worker.read_vec("output");
 
     println!("got {:?}", result) // [16., 25., 36., 49.]
 }

@@ -4,6 +4,7 @@ use bevy::prelude::{AssetEvent, Assets, EventReader, Res, ResMut, Shader};
 
 use pipeline_cache::AppPipelineCache;
 
+mod error;
 mod pipeline_cache;
 mod plugin;
 mod traits;
@@ -18,6 +19,9 @@ pub mod prelude {
         worker::AppComputeWorker,
         worker_builder::AppComputeWorkerBuilder,
     };
+
+    // Since these are always used when using this crate
+    pub use bevy::{reflect::TypeUuid, render::render_resource::{ShaderRef, ShaderType}};
 }
 
 pub(crate) fn process_pipeline_queue_system(mut pipeline_cache: ResMut<AppPipelineCache>) {
