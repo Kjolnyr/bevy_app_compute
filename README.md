@@ -184,4 +184,4 @@ See [examples](https://github.com/kjolnyr/bevy_app_compute/tree/main/examples)
 |Bevy|bevy_app_compute|
 |---|---|
 |main|main|
-|0.10|0.10.2|
+|0.10|0.10.3|
