@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app_compute"
-version = "0.10.2"
+version = "0.10.3"
 authors = ["Kjolnyr <kjolnyr@protonmail.com>"]
 edition = "2021"
 description = "App compute plugin for Bevy"
@@ -13,7 +13,7 @@ categories = ["game-development"]
 
 
 [dependencies]
-bevy = "0.10"
+bevy = "0.10.1"
 parking_lot = "0.12.1"
 wgpu = "0.15.1"
 codespan-reporting = "0.11.1"

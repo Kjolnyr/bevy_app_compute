@@ -13,7 +13,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_app_compute = "0.10.2"
+bevy_app_compute = "0.10.3"
 ```
 
 ## Usage
