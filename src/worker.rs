@@ -2,7 +2,6 @@ use core::panic;
 use std::{marker::PhantomData, ops::Deref};
 
 use bevy::{
-    core::{cast_slice, Pod},
     prelude::{Res, ResMut, Resource},
     render::{
         render_resource::{Buffer, ComputePipeline},
@@ -10,6 +9,7 @@ use bevy::{
     },
     utils::{HashMap, Uuid},
 };
+use bytemuck::{bytes_of, from_bytes, AnyBitPattern, NoUninit, cast_slice};
 use wgpu::{
     BindGroupDescriptor, BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
     ComputePassDescriptor,
@@ -230,42 +230,41 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
     /// Try Read data from `target` staging buffer, return a single `B: Pod`
     #[inline]
-    pub fn try_read<B: Pod>(&self, target: &str) -> Result<B> {
-        let bytes = self.try_read_raw(target)?;
-        Ok(cast_slice(&bytes).to_vec()[0])
+    pub fn try_read<'a, B: AnyBitPattern>(&'a self, target: &str) -> Result<B> {
+        let result = from_bytes::<B>(&self.try_read_raw(target)?).clone();
+        Ok(result)
     }
 
     /// Try Read data from `target` staging buffer, return a single `B: Pod`
     /// In case of error, this function will panic.
     #[inline]
-    pub fn read<B: Pod>(&self, target: &str) -> B {
+    pub fn read<B: AnyBitPattern>(&self, target: &str) -> B {
         self.try_read(target).unwrap()
     }
 
     /// Try Read data from `target` staging buffer, return a vector of `B: Pod`
     #[inline]
-    pub fn try_read_slice<B: Pod>(&self, target: &str) -> Result<Vec<B>> {
+    pub fn try_read_vec<B: AnyBitPattern>(&self, target: &str) -> Result<Vec<B>> {
         let bytes = self.try_read_raw(target)?;
-        Ok(cast_slice(&bytes).to_vec())
+        Ok(cast_slice::<u8, B>(&bytes).to_vec())
     }
 
     /// Try Read data from `target` staging buffer, return a vector of `B: Pod`
     /// In case of error, this function will panic.
     #[inline]
-    pub fn read_slice<B: Pod>(&self, target: &str) -> Vec<B> {
-        self.try_read_slice(target).unwrap()
+    pub fn read_vec<B: AnyBitPattern>(&self, target: &str) -> Vec<B> {
+        self.try_read_vec(target).unwrap()
     }
 
     /// Write data to `target` buffer.
     #[inline]
-    pub fn try_write<T: Pod>(&mut self, target: &str, data: T) -> Result<()> {
+    pub fn try_write<T: NoUninit>(&mut self, target: &str, data: &T) -> Result<()> {
         let Some(buffer) = &self
             .buffers
             .get(target)
             else { return Err(Error::BufferNotFound(target.to_owned())) };
 
-        let binding = [data];
-        let bytes: &[u8] = bytemuck::cast_slice(&binding);
+        let bytes = bytes_of(data);
 
         self.render_queue.write_buffer(buffer, 0, bytes);
 
@@ -275,29 +274,29 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     /// Write data to `target` buffer.
     /// In case of error, this function will panic.
     #[inline]
-    pub fn write<T: Pod>(&mut self, target: &str, data: T) {
+    pub fn write<T: NoUninit>(&mut self, target: &str, data: &T) {
         self.try_write(target, data).unwrap()
     }
 
-    /// Write data slice to `target` buffer.
+    /// Write data to `target` buffer.
     #[inline]
-    pub fn try_write_slice<T: Pod>(&mut self, target: &str, data: &[T]) -> Result<()> {
+    pub fn try_write_slice<T: NoUninit>(&mut self, target: &str, data: &[T]) -> Result<()> {
         let Some(buffer) = &self
             .buffers
             .get(target)
             else { return Err(Error::BufferNotFound(target.to_owned())) };
 
-        let bytes: &[u8] = bytemuck::cast_slice(&data);
+        let bytes = cast_slice(data);
 
         self.render_queue.write_buffer(buffer, 0, bytes);
 
         Ok(())
     }
 
-    /// Write data slice to `target` buffer.
+    /// Write data to `target` buffer.
     /// In case of error, this function will panic.
     #[inline]
-    pub fn write_slice<T: Pod>(&mut self, target: &str, data: &[T]) {
+    pub fn write_slice<T: NoUninit>(&mut self, target: &str, data: &[T]) {
         self.try_write_slice(target, data).unwrap()
     }
 

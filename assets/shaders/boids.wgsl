@@ -1,6 +1,7 @@
 // https://github.com/gfx-rs/wgpu-rs/blob/master/examples/boids/compute.wgsl
 
 struct Params {
+    speed: f32,
     rule1Distance : f32,
     rule2Distance : f32,
     rule3Distance : f32,
@@ -91,7 +92,7 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
         (cVel * params.rule3Scale);
 
     // clamp velocity for a more pleasing simulation
-    vVel = normalize(vVel) * clamp(length(vVel), 0.0, 0.1);
+    vVel = normalize(vVel) * clamp(length(vVel), 0.0, params.speed);
 
     // kinematic update
     vPos = vPos + (vVel * delta_time);

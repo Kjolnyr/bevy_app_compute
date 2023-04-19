@@ -57,7 +57,7 @@ fn test(compute_worker: Res<AppComputeWorker<SimpleComputeWorker>>) {
         return;
     };
 
-    let result: Vec<f32> = compute_worker.read_slice("output");
+    let result: Vec<f32> = compute_worker.read_vec("output");
 
     println!("got {:?}", result) // [16., 25., 36., 49.]
 }

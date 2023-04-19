@@ -42,9 +42,9 @@ fn test(mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>) {
         return;
     };
 
-    let result: Vec<f32> = compute_worker.read_slice("values");
+    let result: Vec<f32> = compute_worker.read_vec("values");
 
-    compute_worker.write_slice("values", &[2., 3., 4., 5.]);
+    compute_worker.write_slice::<f32>("values", &[2., 3., 4., 5.]);
 
     println!("got {:?}", result)
 }

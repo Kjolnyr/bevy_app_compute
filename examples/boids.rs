@@ -17,14 +17,15 @@ use bytemuck::Zeroable;
 use rand::distributions::{Distribution, Uniform};
 
 // Debug mode
-const NUM_BOIDS: u32 = 100;
+//const NUM_BOIDS: u32 = 500;
 
 // Release mode
-//const NUM_BOIDS: u32 = 15_000;
+const NUM_BOIDS: u32 = 2_000;
 
 #[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
 struct Params {
+    speed: f32,
     rule_1_distance: f32,
     rule_2_distance: f32,
     rule_3_distance: f32,
@@ -55,12 +56,13 @@ struct BoidWorker;
 impl ComputeWorker for BoidWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
         let params = Params {
-            rule_1_distance: 0.1,
+            speed: 0.5,
+            rule_1_distance: 0.2,
             rule_2_distance: 0.025,
-            rule_3_distance: 0.025,
-            rule_1_scale: 0.02,
-            rule_2_scale: 0.05,
-            rule_3_scale: 0.005,
+            rule_3_distance: 0.01,
+            rule_1_scale: 0.08,
+            rule_2_scale: 0.02,
+            rule_3_scale: 0.01,
         };
 
         let mut initial_boids_data = Vec::with_capacity(NUM_BOIDS as usize);
@@ -70,7 +72,10 @@ impl ComputeWorker for BoidWorker {
         for _ in 0..NUM_BOIDS {
             initial_boids_data.push(Boid {
                 pos: Vec2::new(unif.sample(&mut rng), unif.sample(&mut rng)),
-                vel: Vec2::new(unif.sample(&mut rng) * 0.1, unif.sample(&mut rng) * 0.1),
+                vel: Vec2::new(
+                    unif.sample(&mut rng) * params.speed,
+                    unif.sample(&mut rng) * params.speed,
+                ),
             });
         }
 
@@ -148,9 +153,9 @@ fn move_entities(
 
     let window = q_window.single();
 
-    let boids: Vec<Boid> = worker.read_slice("boids_dst");
+    let boids = worker.read_vec::<Boid>("boids_dst");
 
-    worker.write("delta_time", time.delta_seconds());
+    worker.write("delta_time", &time.delta_seconds());
 
     q_boid
         .par_iter_mut()
