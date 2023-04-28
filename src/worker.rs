@@ -138,8 +138,6 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 return Err(Error::PipelineNotReady);
             };
 
-        println!("yo!");
-
         let bind_group_layout = pipeline.get_bind_group_layout(0);
         let bind_group = self.render_device.create_bind_group(&BindGroupDescriptor {
             label: None,
