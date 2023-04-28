@@ -9,7 +9,7 @@ use bevy::{
     },
     utils::{HashMap, Uuid},
 };
-use bytemuck::{bytes_of, from_bytes, AnyBitPattern, NoUninit, cast_slice};
+use bytemuck::{bytes_of, cast_slice, from_bytes, AnyBitPattern, NoUninit};
 use wgpu::{
     BindGroupDescriptor, BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
     ComputePassDescriptor,
@@ -49,6 +49,12 @@ pub(crate) struct ComputePass {
     pub(crate) shader_uuid: Uuid,
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct StagingBuffer {
+    pub(crate) mapped: bool,
+    pub(crate) buffer: Buffer,
+}
+
 /// Struct to manage data transfers from/to the GPU
 /// it also handles the logic of your compute work.
 /// By default, the run mode of the workers is set to continuous,
@@ -62,7 +68,7 @@ pub struct AppComputeWorker<W: ComputeWorker> {
     cached_pipeline_ids: HashMap<Uuid, CachedAppComputePipelineId>,
     pipelines: HashMap<Uuid, Option<ComputePipeline>>,
     buffers: HashMap<String, Buffer>,
-    staging_buffers: HashMap<String, Buffer>,
+    staging_buffers: HashMap<String, StagingBuffer>,
     steps: Vec<Step>,
     command_encoder: Option<CommandEncoder>,
     run_mode: RunMode,
@@ -129,9 +135,10 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 else { return Err(Error::PipelinesEmpty) };
 
         let Some(pipeline) = maybe_pipeline else {
-                eprintln!("Pipeline isn't ready yet."); 
                 return Err(Error::PipelineNotReady);
             };
+
+        println!("yo!");
 
         let bind_group_layout = pipeline.get_bind_group_layout(0);
         let bind_group = self.render_device.create_bind_group(&BindGroupDescriptor {
@@ -187,7 +194,13 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 .get(name)
                 else { return Err(Error::BufferNotFound(name.to_owned()))};
 
-            encoder.copy_buffer_to_buffer(&buffer, 0, &staging_buffer, 0, staging_buffer.size());
+            encoder.copy_buffer_to_buffer(
+                &buffer,
+                0,
+                &staging_buffer.buffer,
+                0,
+                staging_buffer.buffer.size(),
+            );
         }
         Ok(self)
     }
@@ -195,7 +208,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     #[inline]
     fn map_staging_buffers(&mut self) -> &mut Self {
         for (_, staging_buffer) in self.staging_buffers.iter_mut() {
-            let read_buffer_slice = staging_buffer.slice(..);
+            let read_buffer_slice = staging_buffer.buffer.slice(..);
 
             read_buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 let err = result.err();
@@ -204,6 +217,8 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                     panic!("{}", some_err.to_string());
                 }
             });
+
+            staging_buffer.mapped = true;
         }
         self
     }
@@ -216,7 +231,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             .get(target)
             else { return Err(Error::StagingBufferNotFound(target.to_owned()))};
 
-        let result = staging_buffer.slice(..).get_mapped_range();
+        let result = staging_buffer.buffer.slice(..).get_mapped_range();
 
         Ok(result)
     }
@@ -342,11 +357,17 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         if worker.ready_to_execute() {
             // Workaround for interior mutability
             for i in 0..worker.steps.len() {
-                match worker.steps[i] {
+                let result = match worker.steps[i] {
                     Step::ComputePass(_) => worker.dispatch(i),
                     Step::Swap(_, _) => worker.swap(i),
+                };
+
+                if let Err(err) = result {
+                    match err {
+                        Error::PipelineNotReady => return,
+                        _ => panic!("{:?}", err),
+                    }
                 }
-                .ok();
             }
 
             worker.read_staging_buffers().unwrap();
@@ -370,12 +391,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     pub(crate) fn unmap_all(mut worker: ResMut<Self>) {
-        if !worker.ready_to_execute() {
-            return;
-        };
-
-        for (_, buffer) in &mut worker.staging_buffers {
-            buffer.unmap();
+        for (_, staging_buffer) in &mut worker.staging_buffers {
+            if staging_buffer.mapped {
+                staging_buffer.buffer.unmap();
+                staging_buffer.mapped = false;
+            }
         }
     }
 

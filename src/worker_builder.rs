@@ -16,7 +16,7 @@ use wgpu::{util::BufferInitDescriptor, BufferDescriptor, BufferUsages};
 use crate::{
     pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId},
     traits::{ComputeShader, ComputeWorker},
-    worker::{AppComputeWorker, ComputePass, RunMode, Step},
+    worker::{AppComputeWorker, ComputePass, RunMode, StagingBuffer, Step},
 };
 
 /// A builder struct to build [`AppComputeWorker<W>`]
@@ -25,7 +25,7 @@ pub struct AppComputeWorkerBuilder<'a, W: ComputeWorker> {
     pub(crate) world: &'a mut World,
     pub(crate) cached_pipeline_ids: HashMap<Uuid, CachedAppComputePipelineId>,
     pub(crate) buffers: HashMap<String, Buffer>,
-    pub(crate) staging_buffers: HashMap<String, Buffer>,
+    pub(crate) staging_buffers: HashMap<String, StagingBuffer>,
     pub(crate) steps: Vec<Step>,
     pub(crate) run_mode: RunMode,
     _phantom: PhantomData<W>,
@@ -116,15 +116,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         let render_device = self.world.resource::<RenderDevice>();
 
-        self.staging_buffers.insert(
-            name.to_owned(),
-            render_device.create_buffer(&BufferDescriptor {
+        let staging = StagingBuffer {
+            mapped: true,
+            buffer: render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
                 size: buffer.size(),
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: true,
             }),
-        );
+        };
+
+        self.staging_buffers.insert(name.to_owned(), staging);
 
         self
     }
@@ -189,15 +191,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         let render_device = self.world.resource::<RenderDevice>();
 
-        self.staging_buffers.insert(
-            name.to_owned(),
-            render_device.create_buffer(&BufferDescriptor {
+        let staging = StagingBuffer {
+            mapped: true,
+            buffer: render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
                 size: buffer.size(),
                 usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
                 mapped_at_creation: true,
             }),
-        );
+        };
+
+        self.staging_buffers.insert(name.to_owned(), staging);
 
         self
     }
