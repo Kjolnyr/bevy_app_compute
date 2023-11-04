@@ -402,13 +402,13 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         pipeline_cache: Res<AppPipelineCache>,
     ) {
         for (uuid, cached_id) in &worker.cached_pipeline_ids.clone() {
-            let Some(pipeline) = worker.pipelines.get(&uuid) else { continue; };
+            let Some(pipeline) = worker.pipelines.get(uuid) else { continue; };
 
             if pipeline.is_some() {
                 continue;
             };
 
-            let cached_id = cached_id.clone();
+            let cached_id = *cached_id;
 
             worker.pipelines.insert(
                 *uuid,
