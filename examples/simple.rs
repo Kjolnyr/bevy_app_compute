@@ -31,7 +31,8 @@ impl ComputeWorker for SimpleComputeWorker {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins((AppComputePlugin, AppComputeWorkerPlugin::<SimpleComputeWorker>::default()))
+        .add_plugin(AppComputePlugin)
+        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
         .add_systems(Update, test)
         .run();
 }
