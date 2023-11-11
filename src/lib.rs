@@ -33,14 +33,19 @@ pub(crate) fn extract_shaders(
     shaders: Res<Assets<Shader>>,
     mut events: EventReader<AssetEvent<Shader>>,
 ) {
-    for event in events.iter() {
+    for event in events.read() {
         match event {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                if let Some(shader) = shaders.get(handle) {
-                    pipeline_cache.set_shader(handle, shader);
+            AssetEvent::Added { id: shader_id } | AssetEvent::Modified { id: shader_id } => {
+                if let Some(shader) = shaders.get(shader_id.clone()) {
+                    pipeline_cache.set_shader(shader_id, shader);
                 }
             }
-            AssetEvent::Removed { handle } => pipeline_cache.remove_shader(handle),
+            AssetEvent::Removed { id: shader_id } => pipeline_cache.remove_shader(shader_id),
+            AssetEvent::LoadedWithDependencies { id: shader_id } => {
+                if let Some(shader) = shaders.get(shader_id.clone()) {
+                    pipeline_cache.set_shader(shader_id, shader);
+                }
+            }
         }
     }
 }

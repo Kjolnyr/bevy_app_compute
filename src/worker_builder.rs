@@ -43,7 +43,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
             staging_buffers: HashMap::default(),
             steps: vec![],
             run_mode: RunMode::Continuous,
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 
@@ -234,7 +234,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         self.steps.push(Step::ComputePass(ComputePass {
             workgroups,
-            vars: vars.into_iter().map(|a| String::from(*a)).collect(),
+            vars: vars.iter().map(|a| String::from(*a)).collect(),
             shader_uuid: S::TYPE_UUID,
         }));
         self

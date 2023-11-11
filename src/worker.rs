@@ -101,7 +101,7 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             steps: builder.steps.clone(),
             command_encoder,
             run_mode: builder.run_mode,
-            _phantom: PhantomData::default(),
+            _phantom: PhantomData,
         }
     }
 }
@@ -139,16 +139,17 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             };
 
         let bind_group_layout = pipeline.get_bind_group_layout(0);
-        let bind_group = self.render_device.create_bind_group(&BindGroupDescriptor {
-            label: None,
-            layout: &bind_group_layout,
-            entries: &entries,
-        });
+        let bind_group = self.render_device.create_bind_group(//&BindGroupDescriptor {
+            None,
+            &bind_group_layout.into(),
+            &entries,
+        //}
+        );
 
         let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone) };
         {
             let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor { label: None });
-            cpass.set_pipeline(&pipeline);
+            cpass.set_pipeline(pipeline);
             cpass.set_bind_group(0, &bind_group, &[]);
             cpass.dispatch_workgroups(
                 compute_pass.workgroups[0],
@@ -193,7 +194,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
                 else { return Err(Error::BufferNotFound(name.to_owned()))};
 
             encoder.copy_buffer_to_buffer(
-                &buffer,
+                buffer,
                 0,
                 &staging_buffer.buffer,
                 0,
@@ -243,8 +244,8 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
     /// Try Read data from `target` staging buffer, return a single `B: Pod`
     #[inline]
-    pub fn try_read<'a, B: AnyBitPattern>(&'a self, target: &str) -> Result<B> {
-        let result = from_bytes::<B>(&self.try_read_raw(target)?).clone();
+    pub fn try_read<B: AnyBitPattern>(&self, target: &str) -> Result<B> {
+        let result = *from_bytes::<B>(&self.try_read_raw(target)?);
         Ok(result)
     }
 
@@ -402,13 +403,13 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         pipeline_cache: Res<AppPipelineCache>,
     ) {
         for (uuid, cached_id) in &worker.cached_pipeline_ids.clone() {
-            let Some(pipeline) = worker.pipelines.get(&uuid) else { continue; };
+            let Some(pipeline) = worker.pipelines.get(uuid) else { continue; };
 
             if pipeline.is_some() {
                 continue;
             };
 
-            let cached_id = cached_id.clone();
+            let cached_id = *cached_id;
 
             worker.pipelines.insert(
                 *uuid,
