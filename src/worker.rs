@@ -116,10 +116,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
         let mut entries = vec![];
         for (index, var) in compute_pass.vars.iter().enumerate() {
-            let Some(buffer) = self
-                    .buffers
-                    .get(var)
-                    else { return Err(Error::BufferNotFound(var.to_owned())) };
+            let Some(buffer) = self.buffers.get(var) else {
+                return Err(Error::BufferNotFound(var.to_owned()));
+            };
 
             let entry = BindGroupEntry {
                 binding: index as u32,
@@ -129,14 +128,13 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             entries.push(entry);
         }
 
-        let Some(maybe_pipeline) = self
-                .pipelines
-                .get(&compute_pass.shader_uuid)
-                else { return Err(Error::PipelinesEmpty) };
+        let Some(maybe_pipeline) = self.pipelines.get(&compute_pass.shader_uuid) else {
+            return Err(Error::PipelinesEmpty);
+        };
 
         let Some(pipeline) = maybe_pipeline else {
-                return Err(Error::PipelineNotReady);
-            };
+            return Err(Error::PipelineNotReady);
+        };
 
         let bind_group_layout = pipeline.get_bind_group_layout(0);
         let bind_group = self.render_device.create_bind_group(&BindGroupDescriptor {
@@ -145,7 +143,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             entries: &entries,
         });
 
-        let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone) };
+        let Some(encoder) = &mut self.command_encoder else {
+            return Err(Error::EncoderIsNone);
+        };
         {
             let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor { label: None });
             cpass.set_pipeline(pipeline);
@@ -186,11 +186,12 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     #[inline]
     fn read_staging_buffers(&mut self) -> Result<&mut Self> {
         for (name, staging_buffer) in &self.staging_buffers {
-            let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone); };
-            let Some(buffer) = self
-                .buffers
-                .get(name)
-                else { return Err(Error::BufferNotFound(name.to_owned()))};
+            let Some(encoder) = &mut self.command_encoder else {
+                return Err(Error::EncoderIsNone);
+            };
+            let Some(buffer) = self.buffers.get(name) else {
+                return Err(Error::BufferNotFound(name.to_owned()));
+            };
 
             encoder.copy_buffer_to_buffer(
                 buffer,
@@ -224,10 +225,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     /// Read data from `target` staging buffer, return raw bytes
     #[inline]
     pub fn try_read_raw<'a>(&'a self, target: &str) -> Result<(impl Deref<Target = [u8]> + 'a)> {
-        let Some(staging_buffer) = &self
-            .staging_buffers
-            .get(target)
-            else { return Err(Error::StagingBufferNotFound(target.to_owned()))};
+        let Some(staging_buffer) = &self.staging_buffers.get(target) else {
+            return Err(Error::StagingBufferNotFound(target.to_owned()));
+        };
 
         let result = staging_buffer.buffer.slice(..).get_mapped_range();
 
@@ -272,10 +272,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     /// Write data to `target` buffer.
     #[inline]
     pub fn try_write<T: NoUninit>(&mut self, target: &str, data: &T) -> Result<()> {
-        let Some(buffer) = &self
-            .buffers
-            .get(target)
-            else { return Err(Error::BufferNotFound(target.to_owned())) };
+        let Some(buffer) = &self.buffers.get(target) else {
+            return Err(Error::BufferNotFound(target.to_owned()));
+        };
 
         let bytes = bytes_of(data);
 
@@ -294,10 +293,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     /// Write data to `target` buffer.
     #[inline]
     pub fn try_write_slice<T: NoUninit>(&mut self, target: &str, data: &[T]) -> Result<()> {
-        let Some(buffer) = &self
-            .buffers
-            .get(target)
-            else { return Err(Error::BufferNotFound(target.to_owned())) };
+        let Some(buffer) = &self.buffers.get(target) else {
+            return Err(Error::BufferNotFound(target.to_owned()));
+        };
 
         let bytes = cast_slice(data);
 
@@ -402,7 +400,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         pipeline_cache: Res<AppPipelineCache>,
     ) {
         for (uuid, cached_id) in &worker.cached_pipeline_ids.clone() {
-            let Some(pipeline) = worker.pipelines.get(uuid) else { continue; };
+            let Some(pipeline) = worker.pipelines.get(uuid) else {
+                continue;
+            };
 
             if pipeline.is_some() {
                 continue;
