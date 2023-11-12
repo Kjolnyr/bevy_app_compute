@@ -32,10 +32,9 @@ impl ComputeWorker for SimpleComputeWorker {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(AppComputePlugin)
-        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
-        .add_system(on_click_compute)
-        .add_system(read_data)
+        .add_plugins(AppComputePlugin)
+        .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
+        .add_systems(Update, (on_click_compute, read_data))
         .run();
 }
 

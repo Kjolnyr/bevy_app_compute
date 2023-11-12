@@ -96,13 +96,13 @@ impl ComputeWorker for BoidWorker {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(AppComputePlugin)
-        .add_plugin(AppComputeWorkerPlugin::<BoidWorker>::default())
+        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(AppComputePlugin)
+        .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
         .insert_resource(ClearColor(Color::DARK_GRAY))
-        .add_startup_system(setup)
-        .add_system(move_entities)
+        .add_systems(Startup, setup)
+        .add_systems(Update, move_entities)
         .run()
 }
 

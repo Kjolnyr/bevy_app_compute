@@ -14,7 +14,7 @@ use bevy::render::render_resource::{
     BindGroupLayout, BindGroupLayoutId, CachedPipelineState, ComputePipeline,
     ComputePipelineDescriptor, ErasedPipelineLayout, ErasedShaderModule, Pipeline,
     PipelineCacheError, RawFragmentState, RawRenderPipelineDescriptor,
-    RawVertexState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderImport, Source,
+    RawVertexState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderImport, Source, ShaderReflectError,
 };
 use bevy::render::renderer::RenderDevice;
 use bevy::utils::{Entry, HashMap, HashSet};
@@ -24,7 +24,7 @@ use parking_lot::Mutex;
 use wgpu::util::make_spirv;
 use wgpu::{
     Features, PipelineLayout, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
-    VertexBufferLayout as RawVertexBufferLayout,
+    VertexBufferLayout as RawVertexBufferLayout, ShaderSource,
 };
 
 pub struct CachedAppPipeline {
@@ -374,91 +374,6 @@ impl AppPipelineCache {
         }
     }
 
-    fn process_render_pipeline(
-        &mut self,
-        id: CachedAppComputePipelineId,
-        descriptor: &RenderPipelineDescriptor,
-    ) -> CachedPipelineState {
-        let vertex_module = match self.shader_cache.get(
-            &self.device,
-            id,
-            &descriptor.vertex.shader.id(),
-            &descriptor.vertex.shader_defs,
-        ) {
-            Ok(module) => module,
-            Err(err) => {
-                return CachedPipelineState::Err(err);
-            }
-        };
-
-        let fragment_data = if let Some(fragment) = &descriptor.fragment {
-            let fragment_module = match self.shader_cache.get(
-                &self.device,
-                id,
-                &fragment.shader.id(),
-                &fragment.shader_defs,
-            ) {
-                Ok(module) => module,
-                Err(err) => {
-                    return CachedPipelineState::Err(err);
-                }
-            };
-            Some((
-                fragment_module,
-                fragment.entry_point.deref(),
-                fragment.targets.as_slice(),
-            ))
-        } else {
-            None
-        };
-
-        let vertex_buffer_layouts = descriptor
-            .vertex
-            .buffers
-            .iter()
-            .map(|layout| RawVertexBufferLayout {
-                array_stride: layout.array_stride,
-                attributes: &layout.attributes,
-                step_mode: layout.step_mode,
-            })
-            .collect::<Vec<_>>();
-
-        let layout = if descriptor.layout.is_empty() && descriptor.push_constant_ranges.is_empty() {
-            None
-        } else {
-            Some(self.layout_cache.get(
-                &self.device,
-                &descriptor.layout,
-                descriptor.push_constant_ranges.to_vec(),
-            ))
-        };
-
-        let descriptor = RawRenderPipelineDescriptor {
-            multiview: None,
-            depth_stencil: descriptor.depth_stencil.clone(),
-            label: descriptor.label.as_deref(),
-            layout,
-            multisample: descriptor.multisample,
-            primitive: descriptor.primitive,
-            vertex: RawVertexState {
-                buffers: &vertex_buffer_layouts,
-                entry_point: descriptor.vertex.entry_point.deref(),
-                module: &vertex_module,
-            },
-            fragment: fragment_data
-                .as_ref()
-                .map(|(module, entry_point, targets)| RawFragmentState {
-                    entry_point,
-                    module,
-                    targets,
-                }),
-        };
-
-        let pipeline = self.device.create_render_pipeline(&descriptor);
-
-        CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline))
-    }
-
     pub fn queue_app_compute_pipeline(
         &self,
         descriptor: ComputePipelineDescriptor,
@@ -490,15 +405,6 @@ impl AppPipelineCache {
             if matches!(pipeline.state, CachedPipelineState::Ok(_)) {
                 continue;
             }
-
-            // pipeline.state = match &pipeline.descriptor.deref() {
-            //     PipelineDescriptor::RenderPipelineDescriptor(descriptor) => {
-            //         self.process_render_pipeline(id, &descriptor)
-            //     }
-            //     ComputePipelineDescriptor::ComputePipelineDescriptor(descriptor) => {
-            //         self.process_compute_pipeline(id, &descriptor)
-            //     }
-            // };
 
             pipeline.state = self.process_compute_pipeline(id, &pipeline.descriptor);
 
@@ -596,88 +502,6 @@ impl AppPipelineCache {
         }
     }
 }
-
-//  fn log_shader_error(source: &ShaderSource, error: &ShaderReflectError) {
-//     use codespan_reporting::{
-//         diagnostic::{Diagnostic, Label},
-//         files::SimpleFile,
-//         term,
-//     };
-
-//     match error {
-//         ShaderReflectError::WgslParse(error) => {
-//             let source = source
-//                 .get_wgsl_source()
-//                 .expect("non-wgsl source for wgsl error");
-//             let msg = error.emit_to_string(source);
-//             error!("failed to process shader:\n{}", msg);
-//         }
-//         ShaderReflectError::GlslParse(errors) => {
-//             let source = source
-//                 .get_glsl_source()
-//                 .expect("non-glsl source for glsl error");
-//             let files = SimpleFile::new("glsl", source);
-//             let config = codespan_reporting::term::Config::default();
-//             let mut writer = term::termcolor::Ansi::new(Vec::new());
-
-//             for err in errors {
-//                 let mut diagnostic = Diagnostic::error().with_message(err.kind.to_string());
-
-//                 if let Some(range) = err.meta.to_range() {
-//                     diagnostic = diagnostic.with_labels(vec![Label::primary((), range)]);
-//                 }
-
-//                 term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
-//             }
-
-//             let msg = writer.into_inner();
-//             let msg = String::from_utf8_lossy(&msg);
-
-//             error!("failed to process shader: \n{}", msg);
-//         }
-//         ShaderReflectError::SpirVParse(error) => {
-//             error!("failed to process shader:\n{}", error);
-//         }
-//         ShaderReflectError::Validation(error) => {
-//             let (filename, source) = match source {
-//                 wgpu::ShaderSource::Wgsl(source) => ("wgsl", source.as_ref()),
-//                 wgpu::ShaderSource::Glsl(source, _) => ("glsl", source.as_ref()),
-//                 wgpu::ShaderSource::SpirV(_) => {
-//                     error!("failed to process shader:\n{}", error);
-//                     return;
-//                 }
-//             };
-
-//             let files = SimpleFile::new(filename, source);
-//             let config = term::Config::default();
-//             let mut writer = term::termcolor::Ansi::new(Vec::new());
-
-//             let diagnostic = Diagnostic::error()
-//                 .with_message(error.to_string())
-//                 .with_labels(
-//                     error
-//                         .spans()
-//                         .map(|(span, desc)| {
-//                             Label::primary((), span.to_range().unwrap())
-//                                 .with_message(desc.to_owned())
-//                         })
-//                         .collect(),
-//                 )
-//                 .with_notes(
-//                     ErrorSources::of(error)
-//                         .map(|source| source.to_string())
-//                         .collect(),
-//                 );
-
-//             term::emit(&mut writer, &config, &files, &diagnostic).expect("cannot write error");
-
-//             let msg = writer.into_inner();
-//             let msg = String::from_utf8_lossy(&msg);
-
-//             error!("failed to process shader: \n{}", msg);
-//         }
-//     };
-// }
 
 struct ErrorSources<'a> {
     current: Option<&'a (dyn std::error::Error + 'static)>,

@@ -11,7 +11,7 @@ use bevy::{
 };
 use bytemuck::{bytes_of, cast_slice, from_bytes, AnyBitPattern, NoUninit};
 use wgpu::{
-    BindGroupDescriptor, BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
+    BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
     ComputePassDescriptor,
 };
 

@@ -11,7 +11,9 @@ use crate::{
 pub struct AppComputePlugin;
 
 impl Plugin for AppComputePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {}
+
+    fn finish(&self, app: &mut App) {
         let render_device = app.world.resource::<RenderDevice>().clone();
 
         app.insert_resource(AppPipelineCache::new(render_device))
@@ -34,7 +36,9 @@ impl<W: ComputeWorker> Default for AppComputeWorkerPlugin<W> {
 }
 
 impl<W: ComputeWorker> Plugin for AppComputeWorkerPlugin<W> {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {}
+
+    fn finish(&self, app: &mut App) {
         let worker = W::build(&mut app.world);
 
         app.insert_resource(worker)

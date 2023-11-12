@@ -13,7 +13,7 @@ categories = ["game-development"]
 
 
 [dependencies]
-bevy = { versions = "0.12", features = ["bevy_render"] }
+bevy = "0.12"
 parking_lot = "0.12.1"
 wgpu = { version = "0.17.1", features = ["naga"] }
 codespan-reporting = "0.11.1"
@@ -24,7 +24,7 @@ naga_oil = "0.10"
 
 [dev-dependencies]
 rand = "0.8.5"
-bevy = { version = "0.12", features = ["wayland", "bevy_render"] }
+bevy = { version = "0.12", features = ["wayland"] }
 
 [[example]]
 name = "simple"
