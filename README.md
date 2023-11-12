@@ -13,7 +13,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_app_compute = "0.10.3"
+bevy_app_compute = "0.11.0"
 ```
 
 ## Usage
@@ -86,8 +86,8 @@ use bevy_app_compute::AppComputePlugin;
 
 fn main() {
     App::new()
-        .add_plugin(AppComputePlugin)
-        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default());
+        .add_plugins(AppComputePlugin)
+        .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default());
 }
 ```
 
@@ -185,3 +185,4 @@ See [examples](https://github.com/kjolnyr/bevy_app_compute/tree/main/examples)
 |---|---|
 |main|main|
 |0.10|0.10.3|
+|0.11|0.11.0|
