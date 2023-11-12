@@ -159,7 +159,7 @@ fn move_entities(
 
     q_boid
         .par_iter_mut()
-        .for_each_mut(|(mut transform, boid_entity)| {
+        .for_each(|(mut transform, boid_entity)| {
             let world_pos = Vec2::new(
                 (window.width() / 2.) * (boids[boid_entity.0].pos.x),
                 (window.height() / 2.) * (boids[boid_entity.0].pos.y),

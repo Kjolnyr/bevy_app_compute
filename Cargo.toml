@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app_compute"
-version = "0.10.5"
+version = "0.12.0"
 authors = ["Kjolnyr <kjolnyr@protonmail.com>"]
 edition = "2021"
 description = "App compute plugin for Bevy"
