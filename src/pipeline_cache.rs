@@ -7,14 +7,13 @@
 use std::borrow::Cow;
 use std::iter::FusedIterator;
 use std::mem;
-use std::ops::Deref;
+
 
 use bevy::prelude::*;
 use bevy::render::render_resource::{
     BindGroupLayout, BindGroupLayoutId, CachedPipelineState, ComputePipeline,
     ComputePipelineDescriptor, ErasedPipelineLayout, ErasedShaderModule, Pipeline,
-    PipelineCacheError, RawFragmentState, RawRenderPipelineDescriptor,
-    RawVertexState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderImport, Source, ShaderReflectError,
+    PipelineCacheError, Shader, ShaderDefVal, ShaderImport, Source,
 };
 use bevy::render::renderer::RenderDevice;
 use bevy::utils::{Entry, HashMap, HashSet};
@@ -24,7 +23,6 @@ use parking_lot::Mutex;
 use wgpu::util::make_spirv;
 use wgpu::{
     Features, PipelineLayout, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
-    VertexBufferLayout as RawVertexBufferLayout, ShaderSource,
 };
 
 pub struct CachedAppPipeline {
@@ -507,6 +505,7 @@ struct ErrorSources<'a> {
     current: Option<&'a (dyn std::error::Error + 'static)>,
 }
 
+#[allow(dead_code)]
 impl<'a> ErrorSources<'a> {
     fn of(error: &'a dyn std::error::Error) -> Self {
         Self {
