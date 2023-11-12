@@ -139,11 +139,10 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             };
 
         let bind_group_layout = pipeline.get_bind_group_layout(0);
-        let bind_group = self.render_device.create_bind_group(//&BindGroupDescriptor {
+        let bind_group = self.render_device.create_bind_group(
             None,
             &bind_group_layout.into(),
             &entries,
-        //}
         );
 
         let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone) };
