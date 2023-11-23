@@ -1,5 +1,6 @@
 //! Simple, hello world example to show the basic concept
 
+use bevy::render::RenderPlugin;
 use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
@@ -31,9 +32,9 @@ impl ComputeWorker for SimpleComputeWorker {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(AppComputePlugin)
-        .add_plugin(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
-        .add_system(test)
+        .add_plugins(AppComputePlugin)
+        .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
+        .add_systems(Update, test)
         .run();
 }
 

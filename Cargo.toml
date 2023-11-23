@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app_compute"
-version = "0.10.3"
+version = "0.12.0"
 authors = ["Kjolnyr <kjolnyr@protonmail.com>"]
 edition = "2021"
 description = "App compute plugin for Bevy"
@@ -13,15 +13,18 @@ categories = ["game-development"]
 
 
 [dependencies]
-bevy = "0.10.1"
+bevy = "0.12"
 parking_lot = "0.12.1"
-wgpu = "0.15.1"
+wgpu = { version = "0.17.1", features = ["naga"] }
 codespan-reporting = "0.11.1"
 futures-lite = "1.13.0"
-bytemuck = "1.13.1"
+bytemuck = "1.4.0"
+naga = { version = "0.13.0", features = ["wgsl-in"] }
+naga_oil = "0.10"
 
 [dev-dependencies]
 rand = "0.8.5"
+bevy = { version = "0.12", features = ["wayland"] }
 
 [[example]]
 name = "simple"

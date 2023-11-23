@@ -11,12 +11,14 @@ use crate::{
 pub struct AppComputePlugin;
 
 impl Plugin for AppComputePlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {}
+
+    fn finish(&self, app: &mut App) {
         let render_device = app.world.resource::<RenderDevice>().clone();
 
         app.insert_resource(AppPipelineCache::new(render_device))
-            .add_system(extract_shaders.in_base_set(CoreSet::PreUpdate))
-            .add_system(process_pipeline_queue_system);
+            .add_systems(PreUpdate, extract_shaders)
+            .add_systems(Update, process_pipeline_queue_system);
     }
 }
 
@@ -34,15 +36,16 @@ impl<W: ComputeWorker> Default for AppComputeWorkerPlugin<W> {
 }
 
 impl<W: ComputeWorker> Plugin for AppComputeWorkerPlugin<W> {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {}
+
+    fn finish(&self, app: &mut App) {
         let worker = W::build(&mut app.world);
 
         app.insert_resource(worker)
-            .add_system(AppComputeWorker::<W>::extract_pipelines)
+            .add_systems(Update, AppComputeWorker::<W>::extract_pipelines)
             .add_systems(
-                (AppComputeWorker::<W>::unmap_all, AppComputeWorker::<W>::run)
-                    .chain()
-                    .in_base_set(CoreSet::PostUpdate),
+                PostUpdate,
+                (AppComputeWorker::<W>::unmap_all, AppComputeWorker::<W>::run).chain(),
             );
     }
 }
