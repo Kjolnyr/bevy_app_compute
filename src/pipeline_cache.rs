@@ -8,7 +8,6 @@ use std::borrow::Cow;
 use std::iter::FusedIterator;
 use std::mem;
 
-
 use bevy::prelude::*;
 use bevy::render::render_resource::{
     BindGroupLayout, BindGroupLayoutId, CachedPipelineState, ComputePipeline,
@@ -485,7 +484,9 @@ impl AppPipelineCache {
     }
 
     pub fn set_shader(&mut self, shader_asset_id: &AssetId<Shader>, shader: &Shader) {
-        let pipelines_to_queue = self.shader_cache.set_shader(shader_asset_id, shader.clone());
+        let pipelines_to_queue = self
+            .shader_cache
+            .set_shader(shader_asset_id, shader.clone());
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline.0].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);

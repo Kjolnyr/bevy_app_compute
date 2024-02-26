@@ -1,11 +1,9 @@
 //! Simple, hello world example to show the basic concept
 
-use bevy::render::RenderPlugin;
-use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
+use bevy::{prelude::*, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
-#[derive(TypeUuid)]
-#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
+#[derive(TypePath)]
 struct SimpleShader;
 
 impl ComputeShader for SimpleShader {

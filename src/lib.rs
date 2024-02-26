@@ -21,7 +21,7 @@ pub mod prelude {
     };
 
     // Since these are always used when using this crate
-    pub use bevy::{reflect::TypeUuid, render::render_resource::{ShaderRef, ShaderType}};
+    pub use bevy::render::render_resource::{ShaderRef, ShaderType};
 }
 
 pub(crate) fn process_pipeline_queue_system(mut pipeline_cache: ResMut<AppPipelineCache>) {
@@ -46,6 +46,7 @@ pub(crate) fn extract_shaders(
                     pipeline_cache.set_shader(shader_id, shader);
                 }
             }
+            AssetEvent::Unused { id: _ } => (),
         }
     }
 }

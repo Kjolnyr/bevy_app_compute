@@ -13,7 +13,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_app_compute = "0.10.3"
+bevy_app_compute = "0.13.0"
 ```
 
 ## Usage
@@ -21,11 +21,10 @@ bevy_app_compute = "0.10.3"
 ### Setup
 
 Declare your shaders in structs implementing `ComputeShader`. The `shader()` fn should point to your shader source code.
-You need to derive `TypeUuid` as well and assign a unique Uuid:
+You need to derive `TypePath` as well:
 
 ```rust
-#[derive(TypeUuid)]
-#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
+#[derive(TypePath)]
 struct SimpleShader;
 
 impl ComputeShader for SimpleShader {
@@ -153,7 +152,7 @@ Then, you can call `execute()` on your worker when you are ready to execute it:
 ```rust
 // Execute it only when the left mouse button is pressed.
 fn on_click_compute(
-    buttons: Res<Input<MouseButton>>,
+    buttons: Res<ButtonInput<MouseButton>>,
     mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>
 ) {
     if !buttons.just_pressed(MouseButton::Left) { return; }
@@ -186,3 +185,4 @@ See [examples](https://github.com/kjolnyr/bevy_app_compute/tree/main/examples)
 |main|main|
 |0.10|0.10.3|
 |0.12|0.10.5|
+|0.13|0.13.0|

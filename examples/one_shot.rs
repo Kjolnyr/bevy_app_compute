@@ -1,10 +1,9 @@
 //! Example showing how to execute compute shaders on demand
 
-use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
+use bevy::{prelude::*, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
-#[derive(TypeUuid)]
-#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
+#[derive(TypePath)]
 struct SimpleShader;
 
 impl ComputeShader for SimpleShader {
@@ -39,7 +38,7 @@ fn main() {
 }
 
 fn on_click_compute(
-    buttons: Res<Input<MouseButton>>,
+    buttons: Res<ButtonInput<MouseButton>>,
     mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>,
 ) {
     if !buttons.just_pressed(MouseButton::Left) {
