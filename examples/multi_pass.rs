@@ -1,10 +1,9 @@
 //! Example showing how to have multiple passes
 
-use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
+use bevy::{prelude::*, reflect::TypePath, render::render_resource::ShaderRef};
 use bevy_app_compute::prelude::*;
 
-#[derive(TypeUuid)]
-#[uuid = "5a4f7163-88cd-4a59-94c7-fb51abe389b8"]
+#[derive(TypePath)]
 struct FirstPassShader;
 
 impl ComputeShader for FirstPassShader {
@@ -13,8 +12,7 @@ impl ComputeShader for FirstPassShader {
     }
 }
 
-#[derive(TypeUuid)]
-#[uuid = "7ada0206-7871-404b-b197-5e2477e7073f"]
+#[derive(TypePath)]
 struct SecondPassShader;
 
 impl ComputeShader for SecondPassShader {
