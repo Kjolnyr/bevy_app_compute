@@ -32,9 +32,14 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(AppComputePlugin)
+        .add_systems(Startup, setup)
         .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
         .add_systems(Update, (on_click_compute, read_data))
         .run();
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera3dBundle::default());
 }
 
 fn on_click_compute(

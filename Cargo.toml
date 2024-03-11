@@ -20,7 +20,9 @@ parking_lot = "0.12.1"
 wgpu = { version = "0.19.1", features = ["naga"] }
 bytemuck = "1.4.0"
 naga = { version = "0.19.0", features = ["wgsl-in"] }
-naga_oil = "0.13"
+naga_oil = { version = "0.13.0", default-features = false, features = [
+    "test_shader",
+] }
 
 [dev-dependencies]
 rand = "0.8.5"
