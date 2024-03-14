@@ -69,6 +69,7 @@ pub struct AppComputeWorker<W: ComputeWorker> {
     steps: Vec<Step>,
     command_encoder: Option<CommandEncoder>,
     run_mode: RunMode,
+    submission_queue_processed: bool,
     _phantom: PhantomData<W>,
 }
 
@@ -99,6 +100,7 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             command_encoder,
             run_mode: builder.run_mode,
             _phantom: PhantomData,
+            submission_queue_processed: false,
         }
     }
 }
@@ -207,15 +209,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         for (_, staging_buffer) in self.staging_buffers.iter_mut() {
             let read_buffer_slice = staging_buffer.buffer.slice(..);
 
-            read_buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                let err = result.err();
-                if err.is_some() {
-                    let some_err = err.unwrap();
-                    panic!("{}", some_err.to_string());
+            read_buffer_slice.map_async(wgpu::MapMode::Read, |result| {
+                if let Some(err) = result.err() {
+                    panic!("{}", err.to_string());
                 }
             });
-
-            staging_buffer.mapped = true;
         }
         self
     }
@@ -317,14 +315,24 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     }
 
     #[inline]
-    fn poll(&self) -> bool {
+    fn poll(&mut self) -> bool {
         match self
             .render_device
             .wgpu_device()
-            .poll(wgpu::MaintainBase::Wait)
+            .poll(wgpu::MaintainBase::Poll)
         {
-            wgpu::MaintainResult::SubmissionQueueEmpty => true,
-            wgpu::MaintainResult::Ok => false,
+            // The first few times the poll occurs the queue will be empty, because wgpu hasn't started anything yet.
+            // We need to wait until `MaintainResult::Ok`, which means wgpu has started to process our data.
+            // Then, the next time the queue is empty (`MaintainResult::SubmissionQueueEmpty`), wgpu has finished processing the data and we are done.
+            wgpu::MaintainResult::SubmissionQueueEmpty => {
+                let res = self.submission_queue_processed;
+                self.submission_queue_processed = false;
+                res
+            }
+            wgpu::MaintainResult::Ok => {
+                self.submission_queue_processed = true;
+                false
+            }
         }
     }
 
@@ -375,6 +383,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         }
 
         if worker.run_mode != RunMode::OneShot(false) && worker.poll() {
+            for (_, staging_buffer) in worker.staging_buffers.iter_mut() {
+                // By this the staging buffers would've been mapped.
+                staging_buffer.mapped = true;
+            }
+
             worker.state = WorkerState::FinishedWorking;
             worker.command_encoder = Some(
                 worker
