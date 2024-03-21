@@ -1,4 +1,4 @@
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData, time::Duration};
 
 use bevy::{
     prelude::{AssetServer, World},
@@ -28,6 +28,12 @@ pub struct AppComputeWorkerBuilder<'a, W: ComputeWorker> {
     pub(crate) staging_buffers: HashMap<String, StagingBuffer>,
     pub(crate) steps: Vec<Step>,
     pub(crate) run_mode: RunMode,
+    /// Maximum duration the compute shader will run asyncronously before being set to synchronous.
+    ///
+    /// Defaults to 0 seconds
+    ///
+    /// 0 seconds means the shader will immediately be polled synchronously. None emeans the shader will only run asynchronously.
+    pub(crate) maximum_async_time: Option<Duration>,
     _phantom: PhantomData<W>,
 }
 
@@ -43,6 +49,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
             staging_buffers: HashMap::default(),
             steps: vec![],
             run_mode: RunMode::Continuous,
+            maximum_async_time: Some(Duration::from_secs(0)),
             _phantom: PhantomData,
         }
     }
@@ -257,6 +264,28 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
     /// The worker will run when requested.
     pub fn one_shot(&mut self) -> &mut Self {
         self.run_mode = RunMode::OneShot(false);
+        self
+    }
+
+    /// The worker will block the frame it is run on until it compltes. This is the default behavior
+    pub fn synchronous(&mut self) -> &mut Self {
+        self.maximum_async_time = Some(Duration::from_secs(0));
+        self
+    }
+
+    /// The worker will not block the frame it is run on and will run asynchronously.
+    ///
+    /// Note that this can cause problems. If the GPU is fully utilized with other tasks (such as rendering), the
+    /// compute shader(s) may never be executed or take a very long time. To prevent this breaking critical tasks,
+    /// but still allow for async execution, the `maximum_async_time` field is provided. By setting this field to
+    /// some value, it will ensure that when the worker exceeds this execution duration, the worker will block
+    /// the frame until the compute shader completes. This will allow the GPU to have space to run your shader in
+    /// the worst-case scenario.
+    ///
+    /// Note that if you set the duration to no time, the shader will never be run asynchronously and immediately
+    /// switch to synchronous mode.
+    pub fn asynchronous(&mut self, maximum_async_time: Option<Duration>) -> &mut Self {
+        self.maximum_async_time = maximum_async_time;
         self
     }
 

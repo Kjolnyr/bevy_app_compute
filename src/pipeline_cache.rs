@@ -12,7 +12,7 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{
     BindGroupLayout, BindGroupLayoutId, CachedPipelineState, ComputePipeline,
     ComputePipelineDescriptor, ErasedPipelineLayout, ErasedShaderModule, Pipeline,
-    PipelineCacheError, Shader, ShaderDefVal, ShaderImport, Source,
+    PipelineCacheError, ShaderDefVal, ShaderImport, Source,
 };
 use bevy::render::renderer::RenderDevice;
 use bevy::utils::{Entry, HashMap, HashSet};
