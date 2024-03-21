@@ -1,6 +1,6 @@
 //! Example showing how to have multiple passes
 
-use bevy::{prelude::*, reflect::TypePath, render::render_resource::ShaderRef};
+use bevy::{prelude::*, reflect::TypePath};
 use bevy_app_compute::prelude::*;
 
 #[derive(TypePath)]

@@ -1,6 +1,6 @@
 //! Example showing how to execute compute shaders on demand
 
-use bevy::{prelude::*, render::render_resource::ShaderRef};
+use bevy::prelude::*;
 use bevy_app_compute::prelude::*;
 
 #[derive(TypePath)]
