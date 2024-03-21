@@ -41,8 +41,7 @@ struct Boid {
     vel: Vec2,
 }
 
-#[derive(TypeUuid)]
-#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
+#[derive(TypePath)]
 struct BoidsShader;
 
 impl ComputeShader for BoidsShader {
@@ -116,15 +115,15 @@ fn setup(
 ) {
     commands.spawn(Camera2dBundle::default());
 
-    let boid_mesh = meshes.add(shape::RegularPolygon::new(5., 3).into());
-    let boid_material = materials.add(Color::ANTIQUE_WHITE.into());
+    let boid_mesh = meshes.add(RegularPolygon::new(1., 3));
+    let boid_material = materials.add(Color::ANTIQUE_WHITE);
 
     // First boid in red, so we can follow it easily
     commands.spawn((
         BoidEntity(0),
         MaterialMesh2dBundle {
             mesh: Mesh2dHandle(boid_mesh.clone()),
-            material: materials.add(Color::ORANGE_RED.into()),
+            material: materials.add(Color::ORANGE_RED),
             ..Default::default()
         },
     ));
