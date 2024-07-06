@@ -80,14 +80,9 @@ fn main(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 Add the `AppComputePlugin` plugin to your app, as well as one `AppComputeWorkerPlugin` per struct implementing `ComputeWorker`:
 
 ```rust
-use bevy::prelude::*;
-use bevy_app_compute::AppComputePlugin;
-
-fn main() {
-    App::new()
-        .add_plugins(AppComputePlugin)
-        .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default());
-}
+App::new()
+    // ... other plugins ...
+    .add_plugins(bevy_app_compute::AppComputeWorkerPlugin::<SimpleComputeWorker>::default());
 ```
 
 Your compute worker will now run every frame, during the `PostUpdate` stage. To read/write from it, use the `AppComputeWorker<T>` resource!
@@ -180,9 +175,9 @@ See [examples](https://github.com/kjolnyr/bevy_app_compute/tree/main/examples)
 
 ## Bevy version mapping
 
-|Bevy|bevy_app_compute|
-|---|---|
-|main|main|
-|0.10|0.10.3|
-|0.12|0.10.5|
-|0.13|0.13.0|
+| Bevy | bevy_app_compute |
+| ---- | ---------------- |
+| main | main             |
+| 0.10 | 0.10.3           |
+| 0.12 | 0.10.5           |
+| 0.13 | 0.13.0           |

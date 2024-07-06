@@ -144,8 +144,8 @@ impl ShaderCache {
         let shader = self
             .shaders
             .get(shader_asset_id)
-            .ok_or_else(|| PipelineCacheError::ShaderNotLoaded(shader_asset_id.clone()))?;
-        let data = self.data.entry(shader_asset_id.clone()).or_default();
+            .ok_or(PipelineCacheError::ShaderNotLoaded(*shader_asset_id))?;
+        let data = self.data.entry(*shader_asset_id).or_default();
         let n_asset_imports = shader
             .imports()
             .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
@@ -255,13 +255,13 @@ impl ShaderCache {
     }
 
     fn clear(&mut self, shader_asset_id: &AssetId<Shader>) -> Vec<CachedAppComputePipelineId> {
-        let mut shaders_to_clear = vec![shader_asset_id.clone()];
+        let mut shaders_to_clear = vec![*shader_asset_id];
         let mut pipelines_to_queue = Vec::new();
         while let Some(shader_asset_id) = shaders_to_clear.pop() {
             if let Some(data) = self.data.get_mut(&shader_asset_id) {
                 data.processed_shaders.clear();
                 pipelines_to_queue.extend(data.pipelines.iter().cloned());
-                shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone()));
+                shaders_to_clear.extend(data.dependents.iter().copied());
             }
         }
 
@@ -276,35 +276,35 @@ impl ShaderCache {
         let pipelines_to_queue = self.clear(shader_asset_id);
         let path = shader.import_path();
         self.import_path_shaders
-            .insert(path.clone(), shader_asset_id.clone());
+            .insert(path.clone(), *shader_asset_id);
         if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
             for waiting_shader in waiting_shaders.drain(..) {
                 // resolve waiting shader import
-                let data = self.data.entry(waiting_shader.clone()).or_default();
+                let data = self.data.entry(waiting_shader).or_default();
                 data.resolved_imports
-                    .insert(path.clone(), shader_asset_id.clone());
+                    .insert(path.clone(), *shader_asset_id);
                 // add waiting shader as dependent of this shader
-                let data = self.data.entry(shader_asset_id.clone()).or_default();
-                data.dependents.insert(waiting_shader.clone());
+                let data = self.data.entry(*shader_asset_id).or_default();
+                data.dependents.insert(waiting_shader);
             }
         }
 
         for import in shader.imports() {
             if let Some(import_handle) = self.import_path_shaders.get(import) {
                 // resolve import because it is currently available
-                let data = self.data.entry(shader_asset_id.clone()).or_default();
+                let data = self.data.entry(*shader_asset_id).or_default();
                 data.resolved_imports
-                    .insert(import.clone(), import_handle.clone());
+                    .insert(import.clone(), *import_handle);
                 // add this shader as a dependent of the import
-                let data = self.data.entry(import_handle.clone()).or_default();
-                data.dependents.insert(shader_asset_id.clone());
+                let data = self.data.entry(*import_handle).or_default();
+                data.dependents.insert(*shader_asset_id);
             } else {
                 let waiting = self.waiting_on_import.entry(import.clone()).or_default();
-                waiting.push(shader_asset_id.clone());
+                waiting.push(*shader_asset_id);
             }
         }
 
-        self.shaders.insert(shader_asset_id.clone(), shader);
+        self.shaders.insert(*shader_asset_id, shader);
         pipelines_to_queue
     }
 
