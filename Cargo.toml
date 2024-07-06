@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app_compute"
-version = "0.13.0"
+version = "0.14.0"
 authors = ["Kjolnyr <kjolnyr@protonmail.com>"]
 edition = "2021"
 description = "App compute plugin for Bevy"
@@ -11,22 +11,26 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 categories = ["game-development"]
 
+[features]
+shader_format_spirv = []
+webgl = []
+
 [lib]
 doctest = false
 
 [dependencies]
-bevy = "0.13"
-parking_lot = "0.12.1"
-wgpu = { version = "0.19.1", features = ["naga"] }
-bytemuck = "1.4.0"
-naga = { version = "0.19.0", features = ["wgsl-in"] }
-naga_oil = { version = "0.13.0", default-features = false, features = [
+bevy = "0.14"
+parking_lot = ">=0.12.3"
+wgpu = { version = ">=0.20.1", features = ["naga"] }
+bytemuck = ">=1.16.1"
+naga = { version = ">=0.20.0", features = ["wgsl-in"] }
+naga_oil = { version = ">=0.14.0", default-features = false, features = [
     "test_shader",
 ] }
 
 [dev-dependencies]
-rand = "0.8.5"
-bevy = { version = "0.13", features = ["wayland"] }
+rand = ">=0.8.5"
+bevy = { version = "0.14", features = ["wayland"] }
 
 [[example]]
 name = "simple"
