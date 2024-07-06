@@ -13,7 +13,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_app_compute = "0.13.0"
+bevy_app_compute = "0.14.0"
 ```
 
 ## Usage
@@ -181,3 +181,4 @@ See [examples](https://github.com/kjolnyr/bevy_app_compute/tree/main/examples)
 | 0.10 | 0.10.3           |
 | 0.12 | 0.10.5           |
 | 0.13 | 0.13.0           |
+| 0.14 | 0.14.0           |
