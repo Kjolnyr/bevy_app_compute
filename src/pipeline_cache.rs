@@ -16,12 +16,13 @@ use bevy::render::render_resource::{
 };
 use bevy::render::renderer::RenderDevice;
 use bevy::utils::{Entry, HashMap, HashSet};
-use naga::valid::Capabilities;
+use naga::valid::{Capabilities, ShaderStages};
 use parking_lot::Mutex;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
-    Features, PipelineLayout, PipelineLayoutDescriptor, PushConstantRange, ShaderModuleDescriptor,
+    Features, PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor,
+    PushConstantRange, ShaderModuleDescriptor,
 };
 
 pub struct CachedAppPipeline {
@@ -95,7 +96,7 @@ impl ShaderCache {
         #[cfg(not(debug_assertions))]
         let composer = naga_oil::compose::Composer::non_validating();
 
-        let composer = composer.with_capabilities(capabilities);
+        let composer = composer.with_capabilities(capabilities, ShaderStages::COMPUTE);
 
         Self {
             composer,
@@ -457,6 +458,7 @@ impl AppPipelineCache {
         };
 
         let descriptor = wgpu::ComputePipelineDescriptor {
+            compilation_options: PipelineCompilationOptions::default(), // changed
             label: descriptor.label.as_deref(),
             layout,
             module: &compute_module,
