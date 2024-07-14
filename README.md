@@ -104,7 +104,7 @@ fn my_system(
 }
 ```
 
-(see [simple.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/dev/examples/simple.rs))
+(see [simple.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/main/examples/simple.rs))
 
 ### Multiple passes
 
@@ -116,16 +116,16 @@ let worker = AppComputeWorkerBuilder::new(world)
     .add_storage("input", &[1., 2., 3., 4.])
     .add_staging("output", &[0f32; 4])
     // add each item + `value` from `input` to `output`
+    // the order of the values represents their binding order
     .add_pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"])
     // multiply each element of `output` by itself
     .add_pass::<SecondPassShader>([4, 1, 1], &["output"])
     .build();
 
     // the `output` buffer will contain [16.0, 25.0, 36.0, 49.0]
-
 ```
 
-(see [multi_pass.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/dev/examples/multi_pass.rs))
+(see [multi_pass.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/main/examples/multi_pass.rs))
 
 ### One shot computes
 
@@ -159,7 +159,7 @@ fn on_click_compute(
 
 It will run at the end of the current frame, and you'll be able to read the data in the next frame.
 
-(see [one_shot.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/dev/examples/one_shot.rs))
+(see [one_shot.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/main/examples/one_shot.rs))
 
 
 ## Examples
