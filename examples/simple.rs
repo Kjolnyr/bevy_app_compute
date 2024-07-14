@@ -1,7 +1,7 @@
 //! Simple, hello world example to show the basic concept
 
 use bevy::prelude::*;
-use bevy_app_compute::prelude::*;
+use bevy_easy_compute::prelude::*;
 
 #[derive(TypePath)]
 struct SimpleShader;

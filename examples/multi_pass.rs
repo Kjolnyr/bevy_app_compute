@@ -1,7 +1,7 @@
 //! Example showing how to have multiple passes
 
 use bevy::{prelude::*, reflect::TypePath};
-use bevy_app_compute::prelude::*;
+use bevy_easy_compute::prelude::*;
 
 #[derive(TypePath)]
 struct FirstPassShader;

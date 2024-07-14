@@ -7,7 +7,7 @@ use crate::{
     traits::ComputeWorker, worker::AppComputeWorker,
 };
 
-/// The main plugin. Always include it if you want to use `bevy_app_compute`
+/// The main plugin. Always include it if you want to use `bevy_easy_compute`
 pub struct AppComputePlugin;
 
 impl Plugin for AppComputePlugin {
