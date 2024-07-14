@@ -1,11 +1,14 @@
 [package]
 name = "bevy_easy_compute"
 version = "0.14.0"
-authors = ["Cornchip <cornchipgonecodin@gmail.com>", "Kjolnyr <kjolnyr@protonmail.com>"]
+authors = [
+    "Cornchip <cornchipgonecodin@gmail.com>",
+    "Kjolnyr <kjolnyr@protonmail.com>",
+]
 edition = "2021"
 description = "An easy way to run compute shaders for Bevy"
-repository = "https://github.com/AnthonyTornetta/bevy_app_compute"
-homepage = "https://github.com/AnthonyTornetta/bevy_app_compute"
+repository = "https://github.com/AnthonyTornetta/bevy_easy_compute"
+homepage = "https://github.com/AnthonyTornetta/bevy_easy_compute"
 documentation = "https://docs.rs/bevy_easy_compute"
 license = "MIT OR Apache-2.0"
 readme = "README.md"

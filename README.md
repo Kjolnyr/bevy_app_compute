@@ -1,11 +1,12 @@
-# Bevy App Compute
+# Bevy Easy Compute
 
 ![MIT/Apache 2.0](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)
-[![Doc](https://docs.rs/bevy_app_compute/badge.svg)](https://docs.rs/bevy_app_compute)
-[![Crate](https://img.shields.io/crates/v/bevy_app_compute.svg)](https://crates.io/crates/bevy_app_compute)
+[![Doc](https://docs.rs/bevy_easy_compute/badge.svg)](https://docs.rs/bevy_easy_compute)
+[![Crate](https://img.shields.io/crates/v/bevy_easy_compute.svg)](https://crates.io/crates/bevy_easy_compute)
 
+An easy way to run wgpu compute shaders within a bevy app.
 
-Dispatch and run compute shaders on bevy from App World .
+This is a fork of [Kjolnyr/bevy_app_compute](https://github.com/Kjolnyr/bevy_app_compute), which is no longer being maintained. This project's goal is to keep maintaining `bevy_app_compute` while keeping the overall architecture of it and adding improvements. Issues + PRs are welcome.
 
 ## Getting Started
 
@@ -13,7 +14,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_app_compute = "0.14.0"
+bevy_easy_compute = "0.14.0"
 ```
 
 ## Usage
@@ -82,7 +83,7 @@ Add the `AppComputePlugin` plugin to your app, as well as one `AppComputeWorkerP
 ```rust
 App::new()
     // ... other plugins ...
-    .add_plugins(bevy_app_compute::AppComputeWorkerPlugin::<SimpleComputeWorker>::default());
+    .add_plugins(bevy_easy_compute::AppComputeWorkerPlugin::<SimpleComputeWorker>::default());
 ```
 
 Your compute worker will now run every frame, during the `PostUpdate` stage. To read/write from it, use the `AppComputeWorker<T>` resource!
@@ -103,7 +104,7 @@ fn my_system(
 }
 ```
 
-(see [simple.rs](https://github.com/kjolnyr/bevy_app_compute/tree/dev/examples/simple.rs))
+(see [simple.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/dev/examples/simple.rs))
 
 ### Multiple passes
 
@@ -115,16 +116,16 @@ let worker = AppComputeWorkerBuilder::new(world)
     .add_storage("input", &[1., 2., 3., 4.])
     .add_staging("output", &[0f32; 4])
     // add each item + `value` from `input` to `output`
-    .add_pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"]) 
+    .add_pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"])
     // multiply each element of `output` by itself
-    .add_pass::<SecondPassShader>([4, 1, 1], &["output"]) 
+    .add_pass::<SecondPassShader>([4, 1, 1], &["output"])
     .build();
 
     // the `output` buffer will contain [16.0, 25.0, 36.0, 49.0]
 
 ```
 
-(see [multi_pass.rs](https://github.com/kjolnyr/bevy_app_compute/tree/dev/examples/multi_pass.rs))
+(see [multi_pass.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/dev/examples/multi_pass.rs))
 
 ### One shot computes
 
@@ -153,32 +154,21 @@ fn on_click_compute(
     if !buttons.just_pressed(MouseButton::Left) { return; }
 
     compute_worker.execute();
-} 
+}
 ```
 
 It will run at the end of the current frame, and you'll be able to read the data in the next frame.
 
-(see [one_shot.rs](https://github.com/kjolnyr/bevy_app_compute/tree/dev/examples/one_shot.rs))
+(see [one_shot.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/dev/examples/one_shot.rs))
 
 
 ## Examples
 
-See [examples](https://github.com/kjolnyr/bevy_app_compute/tree/main/examples)
+See [examples](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/main/examples)
 
-
-## Features being worked upon
-
-- Ability to read/write between compute passes.
-- add more options to the api, like deciding `BufferUsages` or size of buffers.
-- Optimization. Right now the code is a complete mess.
-- Tests. This badly needs tests.
 
 ## Bevy version mapping
 
-| Bevy | bevy_app_compute |
-| ---- | ---------------- |
-| main | main             |
-| 0.10 | 0.10.3           |
-| 0.12 | 0.10.5           |
-| 0.13 | 0.13.0           |
-| 0.14 | 0.14.0           |
+| Bevy | bevy_easy_compute |
+| ---- | ----------------- |
+| 0.14 | 0.14.0            |
