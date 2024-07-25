@@ -14,7 +14,10 @@ mod worker_builder;
 /// Helper module to import most used elements.
 pub mod prelude {
     pub use crate::{
-        plugin::{AppComputePlugin, AppComputeWorkerPlugin},
+        plugin::{
+            AppComputePlugin, AppComputeWorkerPlugin, BevyEasyComputePostUpdateSet,
+            BevyEasyComputeSet,
+        },
         traits::{ComputeShader, ComputeWorker},
         worker::AppComputeWorker,
         worker_builder::AppComputeWorkerBuilder,
