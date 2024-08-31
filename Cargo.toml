@@ -22,12 +22,12 @@ webgl = []
 doctest = false
 
 [dependencies]
-bevy = "0.14"
+bevy = "0.14.1"
 parking_lot = ">=0.12.3"
-wgpu = { version = ">=0.20.1", features = ["naga"] }
+wgpu = { version = "0.20.1", features = ["naga"] }
 bytemuck = ">=1.16.1"
-naga = { version = ">=0.20.0", features = ["wgsl-in"] }
-naga_oil = { version = ">=0.14.0", default-features = false, features = [
+naga = { version = "0.20.0", features = ["wgsl-in"] }
+naga_oil = { version = "0.14.0", default-features = false, features = [
     "test_shader",
 ] }
 
