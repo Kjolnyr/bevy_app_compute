@@ -1,4 +1,5 @@
-//! Example showing how to have multiple passes
+//! Example showing how to have multiple passes where the output of a previous pass is used as the
+//! input for the next pass.
 
 use bevy::{prelude::*, reflect::TypePath};
 use bevy_easy_compute::prelude::*;
