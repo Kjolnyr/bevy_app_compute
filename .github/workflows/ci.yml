@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: false
+  RUST_LOG: "info,wgpu_hal::vulkan::instance=off"
+  RUST_BACKTRACE: full
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  tests:
+    name: Build and Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - 1.80.1
+    steps:
+      - name: Lavapipe GPU Software Renderer
+        run: |
+          sudo apt-get install -y \
+            mesa-vulkan-drivers \
+            libvulkan1 \
+            vulkan-tools \
+            vulkan-validationlayers
+      - run: vulkaninfo
+      - uses: actions/checkout@v4
+      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      - run: cargo build --verbose
+      - run: cargo test --verbose
