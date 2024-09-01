@@ -281,8 +281,7 @@ impl ShaderCache {
             for waiting_shader in waiting_shaders.drain(..) {
                 // resolve waiting shader import
                 let data = self.data.entry(waiting_shader).or_default();
-                data.resolved_imports
-                    .insert(path.clone(), *shader_asset_id);
+                data.resolved_imports.insert(path.clone(), *shader_asset_id);
                 // add waiting shader as dependent of this shader
                 let data = self.data.entry(*shader_asset_id).or_default();
                 data.dependents.insert(waiting_shader);
@@ -293,8 +292,7 @@ impl ShaderCache {
             if let Some(import_handle) = self.import_path_shaders.get(import) {
                 // resolve import because it is currently available
                 let data = self.data.entry(*shader_asset_id).or_default();
-                data.resolved_imports
-                    .insert(import.clone(), *import_handle);
+                data.resolved_imports.insert(import.clone(), *import_handle);
                 // add this shader as a dependent of the import
                 let data = self.data.entry(*import_handle).or_default();
                 data.dependents.insert(*shader_asset_id);
