@@ -99,7 +99,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
-        .insert_resource(ClearColor(css::DARK_GRAY.into()))
+        .insert_resource(ClearColor(css::BLACK.into()))
         .add_systems(Startup, setup)
         .add_systems(Update, move_entities)
         .run();

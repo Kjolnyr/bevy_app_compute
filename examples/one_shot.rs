@@ -1,4 +1,4 @@
-//! Example showing how to execute compute shaders on demand
+//! Example showing how to execute compute shaders on-demand
 
 use bevy::prelude::*;
 use bevy_easy_compute::prelude::*;
@@ -40,6 +40,7 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera3dBundle::default());
+    println!("Click anywhere in the window to trigger a one-shot compute job");
 }
 
 fn on_click_compute(

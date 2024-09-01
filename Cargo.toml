@@ -22,18 +22,41 @@ webgl = []
 doctest = false
 
 [dependencies]
-bevy = "0.14.1"
 parking_lot = ">=0.12.3"
-wgpu = { version = "0.20.1", features = ["naga"] }
 bytemuck = ">=1.16.1"
+
+# The following are only needed to support the `pipeline_cache` "hack". See:
+# https://github.com/AnthonyTornetta/bevy_easy_compute/issues/7
+wgpu = { version = "0.20.1", features = ["naga"] }
 naga = { version = "0.20.0", features = ["wgsl-in"] }
 naga_oil = { version = "0.14.0", default-features = false, features = [
     "test_shader",
 ] }
 
+[dependencies.bevy]
+version = "0.14.1"
+default-features = false
+# See https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md
+features = [
+  "bevy_core_pipeline",
+
+  # TODO: is this inherited by downstream users? If so, then we probably don't need it
+  "multi_threaded",
+]
+
 [dev-dependencies]
 rand = ">=0.8.5"
-bevy = { version = "0.14", features = ["wayland"] }
+
+[dev-dependencies.bevy]
+version = "0.14.1"
+default-features = false
+features = [
+  "bevy_sprite",
+  "bevy_core_pipeline",
+  "multi_threaded",
+  "sysinfo_plugin",
+  "x11",
+]
 
 [[example]]
 name = "simple"

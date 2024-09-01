@@ -1,4 +1,5 @@
-//! Example showing how to have multiple passes
+//! Example showing how to have multiple passes where the output of a previous pass is used as the
+//! input for the next pass.
 
 use bevy::{prelude::*, reflect::TypePath};
 use bevy_easy_compute::prelude::*;
@@ -43,7 +44,15 @@ impl ComputeWorker for SimpleComputeWorker {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins
+                // Do not create a window on startup.
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
+                }),
+        )
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
         .add_systems(Update, test)
