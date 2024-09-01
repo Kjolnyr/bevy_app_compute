@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         toolchain:
-          - 1.80.1
+          - nightly
     steps:
       - name: Lavapipe GPU Software Renderer
         run: |
@@ -30,7 +30,11 @@ jobs:
             vulkan-validationlayers
       - run: vulkaninfo
       - uses: actions/checkout@v4
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+          override: true
       - name: Build
         run: cargo build --verbose
       - name: Test
