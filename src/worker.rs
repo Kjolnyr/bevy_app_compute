@@ -58,6 +58,7 @@ pub(crate) struct StagingBuffer {
 
 /// Struct to manage data transfers from/to the GPU
 /// it also handles the logic of your compute work.
+///
 /// By default, the run mode of the workers is set to continuous,
 /// meaning it will run every frames. If you want to run it deterministically
 /// use the function `one_shot()` in the builder
