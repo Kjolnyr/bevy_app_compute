@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+  push:
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,5 +31,17 @@ jobs:
       - run: vulkaninfo
       - uses: actions/checkout@v4
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose
-      - run: cargo test --verbose
+      - name: Build
+        run: cargo build --verbose
+      - name: Test
+        run: cargo test --verbose
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1.0.7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-targets --all-features -- -D warnings
+      - name: Rustfmt check
+        uses: mbrobbel/rustfmt-check@0.8.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
