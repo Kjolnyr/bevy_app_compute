@@ -15,7 +15,7 @@ readme = "README.md"
 categories = ["game-development"]
 
 [features]
-shader_format_spirv = []
+shader_format_spirv = ["wgpu/spirv"]
 webgl = []
 
 [lib]
