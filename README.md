@@ -14,7 +14,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_easy_compute = "0.14.0"
+bevy_easy_compute = "0.14.1"
 ```
 
 ## Usage
