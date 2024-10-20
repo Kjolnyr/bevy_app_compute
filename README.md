@@ -171,4 +171,4 @@ See [examples](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/main/ex
 
 | Bevy | bevy_easy_compute |
 | ---- | ----------------- |
-| 0.14 | 0.14.0            |
+| 0.14 | 0.14.1            |
