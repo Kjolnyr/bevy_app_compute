@@ -525,4 +525,4 @@ impl<'a> Iterator for ErrorSources<'a> {
     }
 }
 
-impl<'a> FusedIterator for ErrorSources<'a> {}
+impl FusedIterator for ErrorSources<'_> {}

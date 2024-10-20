@@ -34,6 +34,7 @@ pub struct AppComputeWorkerBuilder<'a, W: ComputeWorker> {
     ///
     /// 0 seconds means the shader will immediately be polled synchronously. None emeans the shader will only run asynchronously.
     pub(crate) maximum_async_time: Option<Duration>,
+    extra_buffer_usages: Option<BufferUsages>,
     _phantom: PhantomData<W>,
 }
 
@@ -50,6 +51,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
             steps: vec![],
             run_mode: RunMode::Continuous,
             maximum_async_time: Some(Duration::from_secs(0)),
+            extra_buffer_usages: None,
             _phantom: PhantomData,
         }
     }
@@ -62,12 +64,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         let render_device = self.world.resource::<RenderDevice>();
 
+        let mut usage = BufferUsages::COPY_DST | BufferUsages::UNIFORM;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            usage |= extra_usages;
+        }
+
         self.buffers.insert(
             name.to_owned(),
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some(name),
                 contents: buffer.as_ref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                usage,
             }),
         );
         self
@@ -80,12 +87,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         let render_device = self.world.resource::<RenderDevice>();
 
+        let mut usage = BufferUsages::COPY_DST | BufferUsages::STORAGE;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            usage |= extra_usages;
+        }
+
         self.buffers.insert(
             name.to_owned(),
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some(name),
                 contents: buffer.as_ref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                usage,
             }),
         );
         self
@@ -102,12 +114,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         let render_device = self.world.resource::<RenderDevice>();
 
+        let mut usage = BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::STORAGE;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            usage |= extra_usages;
+        }
+
         self.buffers.insert(
             name.to_owned(),
             render_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: Some(name),
                 contents: buffer.as_ref(),
-                usage: BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::STORAGE,
+                usage,
             }),
         );
         self
@@ -142,12 +159,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
     pub fn add_empty_uniform(&mut self, name: &str, size: u64) -> &mut Self {
         let render_device = self.world.resource::<RenderDevice>();
 
+        let mut usage = BufferUsages::COPY_DST | BufferUsages::UNIFORM;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            usage |= extra_usages;
+        }
+
         self.buffers.insert(
             name.to_owned(),
             render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
                 size,
-                usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                usage,
                 mapped_at_creation: false,
             }),
         );
@@ -159,12 +181,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
     pub fn add_empty_storage(&mut self, name: &str, size: u64) -> &mut Self {
         let render_device = self.world.resource::<RenderDevice>();
 
+        let mut usage = BufferUsages::COPY_DST | BufferUsages::STORAGE;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            usage |= extra_usages;
+        }
+
         self.buffers.insert(
             name.to_owned(),
             render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
                 size,
-                usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
+                usage,
                 mapped_at_creation: false,
             }),
         );
@@ -175,12 +202,17 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
     pub fn add_empty_rw_storage(&mut self, name: &str, size: u64) -> &mut Self {
         let render_device = self.world.resource::<RenderDevice>();
 
+        let mut usage = BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::STORAGE;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            usage |= extra_usages;
+        }
+
         self.buffers.insert(
             name.to_owned(),
             render_device.create_buffer(&BufferDescriptor {
                 label: Some(name),
                 size,
-                usage: BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::STORAGE,
+                usage,
                 mapped_at_creation: false,
             }),
         );
@@ -251,6 +283,14 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
     pub fn add_swap(&mut self, buffer_a: &str, buffer_b: &str) -> &mut Self {
         self.steps
             .push(Step::Swap(buffer_a.to_owned(), buffer_b.to_owned()));
+        self
+    }
+
+    /// Setting this will make all subsequent buffer creations append the provided usages.
+    /// Eg: `set_extra_buffer_usages(usages: Some(BufferUsages::VERTEX))`
+    /// Unset with: `set_extra_buffer_usages(usages: None)`
+    pub fn set_extra_buffer_usages(&mut self, usages: Option<BufferUsages>) -> &mut Self {
+        self.extra_buffer_usages = usages;
         self
     }
 

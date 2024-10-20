@@ -471,4 +471,8 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             );
         }
     }
+
+    pub fn get_buffer(&self, target: &str) -> Option<&Buffer> {
+        self.buffers.get(target)
+    }
 }
