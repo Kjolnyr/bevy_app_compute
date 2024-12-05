@@ -36,7 +36,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     let boid_mesh = meshes.add(RegularPolygon::new(2., 3));
     let boid_material = materials.add(Color::from(css::ANTIQUE_WHITE));
