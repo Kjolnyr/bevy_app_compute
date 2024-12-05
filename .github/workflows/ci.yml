@@ -27,7 +27,9 @@ jobs:
             mesa-vulkan-drivers \
             libvulkan1 \
             vulkan-tools \
-            vulkan-validationlayers
+            vulkan-validationlayers \
+            libasound2-dev \
+            libudev-dev
       - run: vulkaninfo
       - uses: actions/checkout@v4
       - uses: actions-rs/toolchain@v1
@@ -48,4 +50,3 @@ jobs:
         uses: mbrobbel/rustfmt-check@0.8.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
