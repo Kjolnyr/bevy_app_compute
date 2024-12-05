@@ -6,12 +6,9 @@ mod worker;
 use bevy::color::palettes::css;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-    window::PrimaryWindow,
-};
+use bevy::prelude::*;
 
+use bevy::window::PrimaryWindow;
 use bevy_easy_compute::prelude::*;
 
 use worker::{Boid, BoidWorker};
@@ -39,7 +36,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d::default());
 
     let boid_mesh = meshes.add(RegularPolygon::new(2., 3));
     let boid_material = materials.add(Color::from(css::ANTIQUE_WHITE));
@@ -47,21 +44,15 @@ fn setup(
     // First boid in red, so we can follow it easily
     commands.spawn((
         BoidEntity(0),
-        MaterialMesh2dBundle {
-            mesh: Mesh2dHandle(boid_mesh.clone()),
-            material: materials.add(Color::from(css::ORANGE_RED)),
-            ..Default::default()
-        },
+        Mesh2d(boid_mesh.clone()),
+        MeshMaterial2d(materials.add(Color::from(css::ORANGE_RED))),
     ));
 
     for i in 1..NUM_BOIDS {
         commands.spawn((
             BoidEntity(i as usize),
-            MaterialMesh2dBundle {
-                mesh: Mesh2dHandle(boid_mesh.clone()),
-                material: boid_material.clone(),
-                ..Default::default()
-            },
+            Mesh2d(boid_mesh.clone()),
+            MeshMaterial2d(boid_material.clone()),
         ));
     }
 }

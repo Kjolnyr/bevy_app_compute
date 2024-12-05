@@ -2,13 +2,11 @@
 
 use bevy::{
     asset::DirectAssetAccessExt,
+    image::BevyDefault,
     prelude::{FromWorld, Resource, World},
-    render::{
-        render_resource::{
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
-            PipelineCache, PrimitiveState, TextureFormat, VertexState,
-        },
-        texture::BevyDefault,
+    render::render_resource::{
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
+        PipelineCache, PrimitiveState, TextureFormat, VertexState,
     },
 };
 
@@ -55,6 +53,7 @@ impl FromWorld for DrawParticlePipeline {
                     mask: !0,
                     alpha_to_coverage_enabled: false,
                 },
+                zero_initialize_workgroup_memory: false,
             },
         );
 

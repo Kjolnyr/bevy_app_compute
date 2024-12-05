@@ -14,7 +14,7 @@ Add the following line to your `Cargo.toml`
 
 ```toml
 [dependencies]
-bevy_easy_compute = "0.14.1"
+bevy_easy_compute = "0.15"
 ```
 
 ## Usage
@@ -161,14 +161,13 @@ It will run at the end of the current frame, and you'll be able to read the data
 
 (see [one_shot.rs](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/main/examples/one_shot.rs))
 
-
 ## Examples
 
 See [examples](https://github.com/AnthonyTornetta/bevy_easy_compute/tree/main/examples)
-
 
 ## Bevy version mapping
 
 | Bevy | bevy_easy_compute |
 | ---- | ----------------- |
+| 0.15 | 0.15              |
 | 0.14 | 0.14.1            |

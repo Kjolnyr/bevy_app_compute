@@ -39,7 +39,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera3dBundle::default());
+    commands.spawn(Camera3d::default());
     println!("Click anywhere in the window to trigger a one-shot compute job");
 }
 
