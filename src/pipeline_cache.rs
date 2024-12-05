@@ -7,23 +7,26 @@
 use std::borrow::Cow;
 use std::iter::FusedIterator;
 use std::mem;
+use std::sync::Arc;
 
 use bevy::prelude::*;
 use bevy::render::render_resource::{
     BindGroupLayout, BindGroupLayoutId, CachedPipelineState, ComputePipeline,
-    ComputePipelineDescriptor, ErasedPipelineLayout, ErasedShaderModule, Pipeline,
-    PipelineCacheError, ShaderDefVal, ShaderImport, Source,
+    ComputePipelineDescriptor, Pipeline, PipelineCacheError, ShaderDefVal, ShaderImport, Source,
 };
-use bevy::render::renderer::RenderDevice;
+use bevy::render::renderer::{RenderAdapter, RenderDevice, WgpuWrapper};
 use bevy::utils::{Entry, HashMap, HashSet};
-use naga::valid::{Capabilities, ShaderStages};
+use naga::valid::Capabilities;
 use parking_lot::Mutex;
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
-    Features, PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor,
-    PushConstantRange, ShaderModuleDescriptor,
+    DownlevelFlags, Features, PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor,
+    PushConstantRange, ShaderModule, ShaderModuleDescriptor,
 };
+
+type ErasedShaderModule = Arc<WgpuWrapper<ShaderModule>>;
+type ErasedPipelineLayout = Arc<WgpuWrapper<PipelineLayout>>;
 
 pub struct CachedAppPipeline {
     state: CachedPipelineState,
@@ -62,41 +65,109 @@ struct ShaderCache {
 }
 
 impl ShaderCache {
-    fn new(render_device: &RenderDevice) -> Self {
-        const CAPABILITIES: &[(Features, Capabilities)] = &[
-            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-            (Features::SHADER_F64, Capabilities::FLOAT64),
-            (
-                Features::SHADER_PRIMITIVE_INDEX,
+    fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
+        // TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
+        // https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
+        // We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
+        /// Get the device's capabilities for use in `naga_oil`.
+        fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
+            let mut capabilities = Capabilities::empty();
+            capabilities.set(
+                Capabilities::PUSH_CONSTANT,
+                features.contains(Features::PUSH_CONSTANTS),
+            );
+            capabilities.set(
+                Capabilities::FLOAT64,
+                features.contains(Features::SHADER_F64),
+            );
+            capabilities.set(
                 Capabilities::PRIMITIVE_INDEX,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                features.contains(Features::SHADER_PRIMITIVE_INDEX),
+            );
+            capabilities.set(
                 Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                features.contains(
+                    Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                ),
+            );
+            capabilities.set(
                 Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-        ];
-        let features = render_device.features();
-        let mut capabilities = Capabilities::empty();
-        for (feature, capability) in CAPABILITIES {
-            if features.contains(*feature) {
-                capabilities |= *capability;
-            }
+                features.contains(
+                    Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+                ),
+            );
+            // TODO: This needs a proper wgpu feature
+            capabilities.set(
+                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+                features.contains(
+                    Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+                ),
+            );
+            capabilities.set(
+                Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+                features.contains(Features::TEXTURE_FORMAT_16BIT_NORM),
+            );
+            capabilities.set(
+                Capabilities::MULTIVIEW,
+                features.contains(Features::MULTIVIEW),
+            );
+            capabilities.set(
+                Capabilities::EARLY_DEPTH_TEST,
+                features.contains(Features::SHADER_EARLY_DEPTH_TEST),
+            );
+            capabilities.set(
+                Capabilities::SHADER_INT64,
+                features.contains(Features::SHADER_INT64),
+            );
+            capabilities.set(
+                Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
+                features.intersects(
+                    Features::SHADER_INT64_ATOMIC_MIN_MAX | Features::SHADER_INT64_ATOMIC_ALL_OPS,
+                ),
+            );
+            capabilities.set(
+                Capabilities::SHADER_INT64_ATOMIC_ALL_OPS,
+                features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
+            );
+            capabilities.set(
+                Capabilities::MULTISAMPLED_SHADING,
+                downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+            );
+            capabilities.set(
+                Capabilities::DUAL_SOURCE_BLENDING,
+                features.contains(Features::DUAL_SOURCE_BLENDING),
+            );
+            capabilities.set(
+                Capabilities::CUBE_ARRAY_TEXTURES,
+                downlevel.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES),
+            );
+            capabilities.set(
+                Capabilities::SUBGROUP,
+                features.intersects(Features::SUBGROUP | Features::SUBGROUP_VERTEX),
+            );
+            capabilities.set(
+                Capabilities::SUBGROUP_BARRIER,
+                features.intersects(Features::SUBGROUP_BARRIER),
+            );
+            capabilities.set(
+                Capabilities::SUBGROUP_VERTEX_STAGE,
+                features.contains(Features::SUBGROUP_VERTEX),
+            );
+
+            capabilities
         }
+
+        let capabilities = get_capabilities(
+            render_device.features(),
+            render_adapter.get_downlevel_capabilities().flags,
+        );
 
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]
         let composer = naga_oil::compose::Composer::non_validating();
 
-        let composer = composer.with_capabilities(capabilities, ShaderStages::COMPUTE);
+        let composer = composer.with_capabilities(capabilities);
 
         Self {
             composer,
@@ -247,7 +318,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(ErasedShaderModule::new(shader_module))
+                entry.insert(Arc::new(WgpuWrapper::new(shader_module)))
             }
         };
 
@@ -337,13 +408,13 @@ impl LayoutCache {
                     .iter()
                     .map(|l| l.value())
                     .collect::<Vec<_>>();
-                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         push_constant_ranges,
                         ..default()
                     },
-                ))
+                )))
             })
     }
 }
@@ -359,9 +430,9 @@ pub struct AppPipelineCache {
 }
 
 impl AppPipelineCache {
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(device: RenderDevice, render_adapter: RenderAdapter) -> Self {
         Self {
-            shader_cache: ShaderCache::new(&device),
+            shader_cache: ShaderCache::new(&device, &render_adapter),
             device,
             layout_cache: default(),
             waiting_pipelines: default(),
@@ -460,7 +531,8 @@ impl AppPipelineCache {
             label: descriptor.label.as_deref(),
             layout,
             module: &compute_module,
-            entry_point: descriptor.entry_point.as_ref(),
+            entry_point: Some(descriptor.entry_point.as_ref()),
+            cache: None,
         };
 
         let pipeline = self.device.create_compute_pipeline(&descriptor);

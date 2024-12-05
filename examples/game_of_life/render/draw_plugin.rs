@@ -36,7 +36,7 @@ impl Plugin for DrawPlugin {
 
 /// Startup system for [`DrawPlugin`]
 fn startup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 /// Simple system to check that our custom setup has happened.

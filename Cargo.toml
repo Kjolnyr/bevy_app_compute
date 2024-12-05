@@ -1,6 +1,6 @@
 [package]
 name = "bevy_easy_compute"
-version = "0.14.1"
+version = "0.15.0"
 authors = [
     "Cornchip <cornchipgonecodin@gmail.com>",
     "Kjolnyr <kjolnyr@protonmail.com>",
@@ -27,14 +27,15 @@ bytemuck = ">=1.16.1"
 
 # The following are only needed to support the `pipeline_cache` "hack". See:
 # https://github.com/AnthonyTornetta/bevy_easy_compute/issues/7
-wgpu = { version = "0.20.1", features = ["naga"] }
-naga = { version = "0.20.0", features = ["wgsl-in"] }
-naga_oil = { version = "0.14.0", default-features = false, features = [
+# Make sure these match bevy's versions
+wgpu = { version = "23.0.1", features = ["naga-ir"] }
+naga = { version = "23", features = ["wgsl-in"] }
+naga_oil = { version = "0.16", default-features = false, features = [
     "test_shader",
 ] }
 
 [dependencies.bevy]
-version = "0.14.1"
+version = "0.15"
 default-features = false
 # See https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md
 features = [
@@ -48,14 +49,20 @@ features = [
 rand = ">=0.8.5"
 
 [dev-dependencies.bevy]
-version = "0.14.1"
+version = "0.15"
 default-features = false
 features = [
-  "bevy_sprite",
+  "animation",
   "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_ui",
   "multi_threaded",
-  "sysinfo_plugin",
+  "png",
   "x11",
+  "bevy_winit",
+  "bevy_window",
 ]
 
 [[example]]

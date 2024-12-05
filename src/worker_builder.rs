@@ -266,6 +266,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
                 shader_defs: S::shader_defs().to_vec(),
                 entry_point: Cow::Borrowed(S::entry_point()),
                 shader,
+                zero_initialize_workgroup_memory: false,
             });
 
             self.cached_pipeline_ids
