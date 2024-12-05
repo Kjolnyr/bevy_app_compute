@@ -169,8 +169,6 @@ impl ShaderCache {
 
         let composer = composer.with_capabilities(capabilities);
 
-        // let composer = composer.with_capabilities(capabilities, ShaderStages::COMPUTE);
-
         Self {
             composer,
             data: Default::default(),
