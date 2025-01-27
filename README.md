@@ -92,7 +92,7 @@ Your compute worker will now run every frame, during the `PostUpdate` stage. To 
 fn my_system(
     mut compute_worker: ResMut<AppComputeWorker<SimpleComputeWorker>>
 ) {
-    if !compute_worker.available() {
+    if !compute_worker.ready() {
         return;
     };
 
