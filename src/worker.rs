@@ -1,5 +1,9 @@
 use core::panic;
-use std::{marker::PhantomData, ops::Deref};
+use std::{
+    marker::PhantomData,
+    ops::Deref,
+    time::{Duration, SystemTime},
+};
 
 use bevy::{
     prelude::{Res, ResMut, Resource},
@@ -7,13 +11,10 @@ use bevy::{
         render_resource::{Buffer, ComputePipeline},
         renderer::{RenderDevice, RenderQueue},
     },
-    utils::{HashMap, Uuid},
+    utils::HashMap,
 };
 use bytemuck::{bytes_of, cast_slice, from_bytes, AnyBitPattern, NoUninit};
-use wgpu::{
-    BindGroupEntry, CommandEncoder, CommandEncoderDescriptor,
-    ComputePassDescriptor,
-};
+use wgpu::{BindGroupEntry, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor};
 
 use crate::{
     error::{Error, Result},
@@ -32,7 +33,7 @@ pub enum RunMode {
 pub enum WorkerState {
     Created,
     Available,
-    Working,
+    Working { start_time: SystemTime },
     FinishedWorking,
 }
 
@@ -46,7 +47,7 @@ pub(crate) enum Step {
 pub(crate) struct ComputePass {
     pub(crate) workgroups: [u32; 3],
     pub(crate) vars: Vec<String>,
-    pub(crate) shader_uuid: Uuid,
+    pub(crate) shader_type_path: String,
 }
 
 #[derive(Clone, Debug)]
@@ -57,6 +58,7 @@ pub(crate) struct StagingBuffer {
 
 /// Struct to manage data transfers from/to the GPU
 /// it also handles the logic of your compute work.
+///
 /// By default, the run mode of the workers is set to continuous,
 /// meaning it will run every frames. If you want to run it deterministically
 /// use the function `one_shot()` in the builder
@@ -65,13 +67,18 @@ pub struct AppComputeWorker<W: ComputeWorker> {
     pub(crate) state: WorkerState,
     render_device: RenderDevice,
     render_queue: RenderQueue,
-    cached_pipeline_ids: HashMap<Uuid, CachedAppComputePipelineId>,
-    pipelines: HashMap<Uuid, Option<ComputePipeline>>,
+    cached_pipeline_ids: HashMap<String, CachedAppComputePipelineId>,
+    pipelines: HashMap<String, Option<ComputePipeline>>,
     buffers: HashMap<String, Buffer>,
     staging_buffers: HashMap<String, StagingBuffer>,
     steps: Vec<Step>,
     command_encoder: Option<CommandEncoder>,
     run_mode: RunMode,
+    submission_queue_processed: bool,
+    /// Maximum duration the compute shader will run asyncronously before being set to synchronous.
+    ///
+    /// 0 seconds means the shader will immediately be polled synchronously. None emeans the shader will only run asynchronously.
+    maximum_async_time: Option<Duration>,
     _phantom: PhantomData<W>,
 }
 
@@ -84,7 +91,7 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
         let pipelines = builder
             .cached_pipeline_ids
             .iter()
-            .map(|(uuid, _)| (*uuid, None))
+            .map(|(type_path, _)| (type_path.clone(), None))
             .collect();
 
         let command_encoder =
@@ -102,6 +109,8 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             command_encoder,
             run_mode: builder.run_mode,
             _phantom: PhantomData,
+            maximum_async_time: builder.maximum_async_time,
+            submission_queue_processed: false,
         }
     }
 }
@@ -116,10 +125,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
         let mut entries = vec![];
         for (index, var) in compute_pass.vars.iter().enumerate() {
-            let Some(buffer) = self
-                    .buffers
-                    .get(var)
-                    else { return Err(Error::BufferNotFound(var.to_owned())) };
+            let Some(buffer) = self.buffers.get(var) else {
+                return Err(Error::BufferNotFound(var.to_owned()));
+            };
 
             let entry = BindGroupEntry {
                 binding: index as u32,
@@ -129,25 +137,27 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             entries.push(entry);
         }
 
-        let Some(maybe_pipeline) = self
-                .pipelines
-                .get(&compute_pass.shader_uuid)
-                else { return Err(Error::PipelinesEmpty) };
+        let Some(maybe_pipeline) = self.pipelines.get(&compute_pass.shader_type_path) else {
+            return Err(Error::PipelinesEmpty);
+        };
 
         let Some(pipeline) = maybe_pipeline else {
-                return Err(Error::PipelineNotReady);
-            };
+            return Err(Error::PipelineNotReady);
+        };
 
         let bind_group_layout = pipeline.get_bind_group_layout(0);
-        let bind_group = self.render_device.create_bind_group(
-            None,
-            &bind_group_layout.into(),
-            &entries,
-        );
+        let bind_group =
+            self.render_device
+                .create_bind_group(None, &bind_group_layout.into(), &entries);
 
-        let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone) };
+        let Some(encoder) = &mut self.command_encoder else {
+            return Err(Error::EncoderIsNone);
+        };
         {
-            let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor { label: None });
+            let mut cpass = encoder.begin_compute_pass(&ComputePassDescriptor {
+                label: None,
+                timestamp_writes: None,
+            });
             cpass.set_pipeline(pipeline);
             cpass.set_bind_group(0, &bind_group, &[]);
             cpass.dispatch_workgroups(
@@ -186,11 +196,12 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     #[inline]
     fn read_staging_buffers(&mut self) -> Result<&mut Self> {
         for (name, staging_buffer) in &self.staging_buffers {
-            let Some(encoder) = &mut self.command_encoder else { return Err(Error::EncoderIsNone); };
-            let Some(buffer) = self
-                .buffers
-                .get(name)
-                else { return Err(Error::BufferNotFound(name.to_owned()))};
+            let Some(encoder) = &mut self.command_encoder else {
+                return Err(Error::EncoderIsNone);
+            };
+            let Some(buffer) = self.buffers.get(name) else {
+                return Err(Error::BufferNotFound(name.to_owned()));
+            };
 
             encoder.copy_buffer_to_buffer(
                 buffer,
@@ -208,15 +219,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         for (_, staging_buffer) in self.staging_buffers.iter_mut() {
             let read_buffer_slice = staging_buffer.buffer.slice(..);
 
-            read_buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
-                let err = result.err();
-                if err.is_some() {
-                    let some_err = err.unwrap();
-                    panic!("{}", some_err.to_string());
+            read_buffer_slice.map_async(wgpu::MapMode::Read, |result| {
+                if let Some(err) = result.err() {
+                    panic!("{}", err.to_string());
                 }
             });
-
-            staging_buffer.mapped = true;
         }
         self
     }
@@ -224,10 +231,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     /// Read data from `target` staging buffer, return raw bytes
     #[inline]
     pub fn try_read_raw<'a>(&'a self, target: &str) -> Result<(impl Deref<Target = [u8]> + 'a)> {
-        let Some(staging_buffer) = &self
-            .staging_buffers
-            .get(target)
-            else { return Err(Error::StagingBufferNotFound(target.to_owned()))};
+        let Some(staging_buffer) = &self.staging_buffers.get(target) else {
+            return Err(Error::StagingBufferNotFound(target.to_owned()));
+        };
 
         let result = staging_buffer.buffer.slice(..).get_mapped_range();
 
@@ -272,10 +278,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     /// Write data to `target` buffer.
     #[inline]
     pub fn try_write<T: NoUninit>(&mut self, target: &str, data: &T) -> Result<()> {
-        let Some(buffer) = &self
-            .buffers
-            .get(target)
-            else { return Err(Error::BufferNotFound(target.to_owned())) };
+        let Some(buffer) = &self.buffers.get(target) else {
+            return Err(Error::BufferNotFound(target.to_owned()));
+        };
 
         let bytes = bytes_of(data);
 
@@ -294,10 +299,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     /// Write data to `target` buffer.
     #[inline]
     pub fn try_write_slice<T: NoUninit>(&mut self, target: &str, data: &[T]) -> Result<()> {
-        let Some(buffer) = &self
-            .buffers
-            .get(target)
-            else { return Err(Error::BufferNotFound(target.to_owned())) };
+        let Some(buffer) = &self.buffers.get(target) else {
+            return Err(Error::BufferNotFound(target.to_owned()));
+        };
 
         let bytes = cast_slice(data);
 
@@ -316,15 +320,58 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     fn submit(&mut self) -> &mut Self {
         let encoder = self.command_encoder.take().unwrap();
         self.render_queue.submit(Some(encoder.finish()));
-        self.state = WorkerState::Working;
+        self.state = WorkerState::Working {
+            start_time: SystemTime::now(),
+        };
         self
     }
 
     #[inline]
-    fn poll(&self) -> bool {
-        self.render_device
-            .wgpu_device()
-            .poll(wgpu::MaintainBase::Wait)
+    fn poll(&mut self) -> bool {
+        let WorkerState::Working { start_time } = self.state else {
+            // We will always be in this state at this point
+            panic!("Called AppComputeWorker::poll() without being in the Working state!");
+        };
+
+        let is_async = self
+            .maximum_async_time
+            .map(|x| {
+                SystemTime::now()
+                    .duration_since(start_time)
+                    .unwrap_or_default()
+                    < x
+            })
+            .unwrap_or(true);
+
+        if is_async {
+            match self
+                .render_device
+                .wgpu_device()
+                .poll(wgpu::MaintainBase::Poll)
+            {
+                // The first few times the poll occurs the queue will be empty, because wgpu hasn't started anything yet.
+                // We need to wait until `MaintainResult::Ok`, which means wgpu has started to process our data.
+                // Then, the next time the queue is empty (`MaintainResult::SubmissionQueueEmpty`), wgpu has finished processing the data and we are done.
+                wgpu::MaintainResult::SubmissionQueueEmpty => {
+                    let res = self.submission_queue_processed;
+                    self.submission_queue_processed = false;
+                    res
+                }
+                wgpu::MaintainResult::Ok => {
+                    self.submission_queue_processed = true;
+                    false
+                }
+            }
+        } else {
+            match self
+                .render_device
+                .wgpu_device()
+                .poll(wgpu::MaintainBase::Wait)
+            {
+                wgpu::MaintainResult::SubmissionQueueEmpty => true,
+                wgpu::MaintainResult::Ok => false,
+            }
+        }
     }
 
     /// Check if the worker is ready to be read from.
@@ -344,7 +391,8 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
     #[inline]
     fn ready_to_execute(&self) -> bool {
-        (self.state != WorkerState::Working) && (self.run_mode != RunMode::OneShot(false))
+        (!matches!(self.state, WorkerState::Working { start_time: _ }))
+            && (self.run_mode != RunMode::OneShot(false))
     }
 
     pub(crate) fn run(mut worker: ResMut<Self>) {
@@ -374,6 +422,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         }
 
         if worker.run_mode != RunMode::OneShot(false) && worker.poll() {
+            for (_, staging_buffer) in worker.staging_buffers.iter_mut() {
+                // By this the staging buffers would've been mapped.
+                staging_buffer.mapped = true;
+            }
+
             worker.state = WorkerState::FinishedWorking;
             worker.command_encoder = Some(
                 worker
@@ -401,8 +454,10 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         mut worker: ResMut<Self>,
         pipeline_cache: Res<AppPipelineCache>,
     ) {
-        for (uuid, cached_id) in &worker.cached_pipeline_ids.clone() {
-            let Some(pipeline) = worker.pipelines.get(uuid) else { continue; };
+        for (type_path, cached_id) in &worker.cached_pipeline_ids.clone() {
+            let Some(pipeline) = worker.pipelines.get(type_path) else {
+                continue;
+            };
 
             if pipeline.is_some() {
                 continue;
@@ -411,9 +466,13 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             let cached_id = *cached_id;
 
             worker.pipelines.insert(
-                *uuid,
+                type_path.clone(),
                 pipeline_cache.get_compute_pipeline(cached_id).cloned(),
             );
         }
+    }
+
+    pub fn get_buffer(&self, target: &str) -> Option<&Buffer> {
+        self.buffers.get(target)
     }
 }

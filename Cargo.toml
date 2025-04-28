@@ -1,30 +1,69 @@
 [package]
-name = "bevy_app_compute"
-version = "0.12.0"
-authors = ["Kjolnyr <kjolnyr@protonmail.com>"]
+name = "bevy_easy_compute"
+version = "0.15.0"
+authors = [
+    "Cornchip <cornchipgonecodin@gmail.com>",
+    "Kjolnyr <kjolnyr@protonmail.com>",
+]
 edition = "2021"
-description = "App compute plugin for Bevy"
-repository = "https://github.com/Kjolnyr/bevy_app_compute"
-homepage = "https://github.com/Kjolnyr/bevy_app_compute"
-documentation = "https://docs.rs/bevy_app_compute"
+description = "An easy way to run compute shaders for Bevy"
+repository = "https://github.com/AnthonyTornetta/bevy_easy_compute"
+homepage = "https://github.com/AnthonyTornetta/bevy_easy_compute"
+documentation = "https://docs.rs/bevy_easy_compute"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 categories = ["game-development"]
 
+[features]
+shader_format_spirv = ["wgpu/spirv"]
+webgl = []
+
+[lib]
+doctest = false
 
 [dependencies]
-bevy = "0.12"
-parking_lot = "0.12.1"
-wgpu = { version = "0.17.1", features = ["naga"] }
-codespan-reporting = "0.11.1"
-futures-lite = "1.13.0"
-bytemuck = "1.4.0"
-naga = { version = "0.13.0", features = ["wgsl-in"] }
-naga_oil = "0.10"
+parking_lot = ">=0.12.3"
+bytemuck = ">=1.16.1"
+
+# The following are only needed to support the `pipeline_cache` "hack". See:
+# https://github.com/AnthonyTornetta/bevy_easy_compute/issues/7
+# Make sure these match bevy's versions
+wgpu = { version = "23.0.1", features = ["naga-ir"] }
+naga = { version = "23", features = ["wgsl-in"] }
+naga_oil = { version = "0.16", default-features = false, features = [
+    "test_shader",
+] }
+
+[dependencies.bevy]
+version = "0.15"
+default-features = false
+# See https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md
+features = [
+  "bevy_core_pipeline",
+
+  # TODO: is this inherited by downstream users? If so, then we probably don't need it
+  "multi_threaded",
+]
 
 [dev-dependencies]
-rand = "0.8.5"
-bevy = { version = "0.12", features = ["wayland"] }
+rand = ">=0.8.5"
+
+[dev-dependencies.bevy]
+version = "0.15"
+default-features = false
+features = [
+  "animation",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_ui",
+  "multi_threaded",
+  "png",
+  "x11",
+  "bevy_winit",
+  "bevy_window",
+]
 
 [[example]]
 name = "simple"

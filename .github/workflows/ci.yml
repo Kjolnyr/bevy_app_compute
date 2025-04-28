@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: false
+  RUST_LOG: "info,wgpu_hal::vulkan::instance=off"
+  RUST_BACKTRACE: full
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  tests:
+    name: Build and Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - nightly
+    steps:
+      - name: Lavapipe GPU Software Renderer
+        run: |
+          sudo apt-get install -y \
+            mesa-vulkan-drivers \
+            libvulkan1 \
+            vulkan-tools \
+            vulkan-validationlayers \
+            libasound2-dev \
+            libudev-dev
+      - run: vulkaninfo
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy, rustfmt
+          override: true
+      - name: Build
+        run: cargo build --verbose
+      # Test is broken in GH CI for now - make sure to test it locally
+      # - name: Test
+      # run: cargo test --verbose
+      - name: Clippy check
+        uses: actions-rs/clippy-check@v1.0.7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-targets --all-features -- -D warnings
+      - name: Rustfmt check
+        uses: mbrobbel/rustfmt-check@0.8.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,11 +1,9 @@
 //! Simple, hello world example to show the basic concept
 
-use bevy::render::RenderPlugin;
-use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
-use bevy_app_compute::prelude::*;
+use bevy::prelude::*;
+use bevy_easy_compute::prelude::*;
 
-#[derive(TypeUuid)]
-#[uuid = "2545ae14-a9bc-4f03-9ea4-4eb43d1075a7"]
+#[derive(TypePath)]
 struct SimpleShader;
 
 impl ComputeShader for SimpleShader {
@@ -31,7 +29,15 @@ impl ComputeWorker for SimpleComputeWorker {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins
+                // Do not create a window on startup.
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
+                }),
+        )
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
         .add_systems(Update, test)

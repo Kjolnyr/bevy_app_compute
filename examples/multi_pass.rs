@@ -1,10 +1,10 @@
-//! Example showing how to have multiple passes
+//! Example showing how to have multiple passes where the output of a previous pass is used as the
+//! input for the next pass.
 
-use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::ShaderRef};
-use bevy_app_compute::prelude::*;
+use bevy::{prelude::*, reflect::TypePath};
+use bevy_easy_compute::prelude::*;
 
-#[derive(TypeUuid)]
-#[uuid = "5a4f7163-88cd-4a59-94c7-fb51abe389b8"]
+#[derive(TypePath)]
 struct FirstPassShader;
 
 impl ComputeShader for FirstPassShader {
@@ -13,8 +13,7 @@ impl ComputeShader for FirstPassShader {
     }
 }
 
-#[derive(TypeUuid)]
-#[uuid = "7ada0206-7871-404b-b197-5e2477e7073f"]
+#[derive(TypePath)]
 struct SecondPassShader;
 
 impl ComputeShader for SecondPassShader {
@@ -45,7 +44,15 @@ impl ComputeWorker for SimpleComputeWorker {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins
+                // Do not create a window on startup.
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
+                }),
+        )
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<SimpleComputeWorker>::default())
         .add_systems(Update, test)
