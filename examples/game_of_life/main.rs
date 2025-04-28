@@ -20,7 +20,7 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
 use bevy::prelude::*;
 
-use bevy_easy_compute::prelude::*;
+use bevy_app_compute::prelude::*;
 use render::draw_plugin::DrawPlugin;
 
 use crate::bind_groups::get_buffers_for_renderer;
@@ -32,7 +32,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(LogDiagnosticsPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<GameOfLifeWorker>::default())
         .add_plugins(DrawPlugin)

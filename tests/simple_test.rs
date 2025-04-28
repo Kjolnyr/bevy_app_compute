@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_easy_compute::prelude::*;
+use bevy_app_compute::prelude::*;
 
 mod common;
 

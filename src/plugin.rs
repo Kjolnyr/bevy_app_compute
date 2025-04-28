@@ -6,11 +6,10 @@ use bevy::{
 };
 
 use crate::{
-    extract_shaders, pipeline_cache::AppPipelineCache, process_pipeline_queue_system,
-    traits::ComputeWorker, worker::AppComputeWorker,
+    extract_shaders, pipeline_cache::PipelineCache, traits::ComputeWorker, worker::AppComputeWorker,
 };
 
-/// The main plugin. Always include it if you want to use `bevy_easy_compute`
+/// The main plugin. Always include it if you want to use `bevy_app_compute`
 pub struct AppComputePlugin;
 
 impl Plugin for AppComputePlugin {
@@ -23,11 +22,12 @@ impl Plugin for AppComputePlugin {
         app.configure_sets(Update, BevyEasyComputeSet::ExtractPipelines)
             .configure_sets(PostUpdate, BevyEasyComputePostUpdateSet::ExecuteCompute);
 
-        app.insert_resource(AppPipelineCache::new(render_device, render_adapter))
+        app.insert_resource(PipelineCache::new(render_device, render_adapter, true))
             .add_systems(PreUpdate, extract_shaders)
             .add_systems(
                 Update,
-                process_pipeline_queue_system.in_set(BevyEasyComputeSet::ExtractPipelines),
+                PipelineCache::process_pipeline_queue_system
+                    .in_set(BevyEasyComputeSet::ExtractPipelines),
             );
     }
 }
@@ -72,7 +72,7 @@ impl<W: ComputeWorker> Plugin for AppComputeWorkerPlugin<W> {
                 Update,
                 AppComputeWorker::<W>::extract_pipelines
                     .in_set(BevyEasyComputeSet::ExtractPipelines)
-                    .after(process_pipeline_queue_system),
+                    .after(PipelineCache::process_pipeline_queue_system),
             )
             .add_systems(
                 PostUpdate,

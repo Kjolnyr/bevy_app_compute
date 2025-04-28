@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use bevy_easy_compute::prelude::*;
+use bevy_app_compute::prelude::*;
 use bytemuck::{Pod, Zeroable};
 
-use rand::distributions::{Distribution, Uniform};
+use rand::distr::{Distribution, Uniform};
 
 use crate::NUM_BOIDS;
 
@@ -50,8 +50,8 @@ impl ComputeWorker for BoidWorker {
         };
 
         let mut initial_boids_data = Vec::with_capacity(NUM_BOIDS as usize);
-        let mut rng = rand::thread_rng();
-        let unif = Uniform::new_inclusive(-1., 1.);
+        let mut rng = rand::rng();
+        let unif = Uniform::new_inclusive(-1., 1.).unwrap();
 
         for _ in 0..NUM_BOIDS {
             initial_boids_data.push(Boid {

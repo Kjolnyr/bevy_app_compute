@@ -1,8 +1,9 @@
 use bevy::prelude::*;
 
-use bevy_easy_compute::prelude::*;
+use bevy_app_compute::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use rand::{distributions::Uniform, Rng};
+use rand::{Rng, distr::Uniform};
+use tracing::info;
 use wgpu::BufferUsages;
 
 use crate::DIMENSIONS;
@@ -37,8 +38,8 @@ impl ComputeWorker for GameOfLifeWorker {
         };
 
         let mut initial_cell_data = Vec::with_capacity(NUMBER_OF_CELLS as usize);
-        let mut rng = rand::thread_rng();
-        let range = Uniform::new(0.0, 1.0);
+        let mut rng = rand::rng();
+        let range = Uniform::new(0.0, 1.0).unwrap();
 
         info!("Generating {NUMBER_OF_CELLS} random cells...");
         for _ in 0..NUMBER_OF_CELLS {

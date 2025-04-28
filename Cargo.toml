@@ -1,21 +1,22 @@
 [package]
-name = "bevy_easy_compute"
-version = "0.15.0"
+name = "bevy_app_compute"
+version = "0.16.0"
 authors = [
     "Cornchip <cornchipgonecodin@gmail.com>",
     "Kjolnyr <kjolnyr@protonmail.com>",
 ]
-edition = "2021"
+edition = "2024"
 description = "An easy way to run compute shaders for Bevy"
-repository = "https://github.com/AnthonyTornetta/bevy_easy_compute"
-homepage = "https://github.com/AnthonyTornetta/bevy_easy_compute"
-documentation = "https://docs.rs/bevy_easy_compute"
+repository = "https://github.com/Kjolnyr/bevy_app_compute"
+homepage = "https://github.com/Kjolnyr/bevy_app_compute"
+documentation = "https://docs.rs/bevy_app_compute"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-categories = ["game-development"]
+categories = ["game-development", "bevy"]
 
 [features]
 shader_format_spirv = ["wgpu/spirv"]
+shader_format_wesl = ["wesl"]
 webgl = []
 
 [lib]
@@ -24,18 +25,22 @@ doctest = false
 [dependencies]
 parking_lot = ">=0.12.3"
 bytemuck = ">=1.16.1"
+wesl = { version = "0.1.2", optional = true }
 
-# The following are only needed to support the `pipeline_cache` "hack". See:
+# The following are only needed to support the `pipeline_cache` "hack". See issue in bevy_easy_compute:
 # https://github.com/AnthonyTornetta/bevy_easy_compute/issues/7
 # Make sure these match bevy's versions
-wgpu = { version = "23.0.1", features = ["naga-ir"] }
-naga = { version = "23", features = ["wgsl-in"] }
-naga_oil = { version = "0.16", default-features = false, features = [
+wgpu = { version = "24.0.0", features = ["naga-ir"] }
+naga = { version = "24.0.0", features = ["wgsl-in"] }
+naga_oil = { version = "0.17.0", default-features = false, features = [
     "test_shader",
 ] }
+futures-lite = "2.0.1"
+thiserror = { version = "2", default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["std"] } 
 
 [dependencies.bevy]
-version = "0.15"
+version = "0.16.0"
 default-features = false
 # See https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md
 features = [
@@ -46,10 +51,10 @@ features = [
 ]
 
 [dev-dependencies]
-rand = ">=0.8.5"
+rand = ">=0.9.1"
 
 [dev-dependencies.bevy]
-version = "0.15"
+version = "0.16.0"
 default-features = false
 features = [
   "animation",

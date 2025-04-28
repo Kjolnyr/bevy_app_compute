@@ -6,19 +6,19 @@ use std::{
 };
 
 use bevy::{
+    platform::collections::HashMap,
     prelude::{Res, ResMut, Resource},
     render::{
         render_resource::{Buffer, ComputePipeline},
         renderer::{RenderDevice, RenderQueue},
     },
-    utils::HashMap,
 };
-use bytemuck::{bytes_of, cast_slice, from_bytes, AnyBitPattern, NoUninit};
+use bytemuck::{AnyBitPattern, NoUninit, bytes_of, cast_slice, from_bytes};
 use wgpu::{BindGroupEntry, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor};
 
 use crate::{
     error::{Error, Result},
-    pipeline_cache::{AppPipelineCache, CachedAppComputePipelineId},
+    pipeline_cache::{AppCachedComputePipelineId, PipelineCache},
     traits::ComputeWorker,
     worker_builder::AppComputeWorkerBuilder,
 };
@@ -29,7 +29,7 @@ pub enum RunMode {
     OneShot(bool),
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum WorkerState {
     Created,
     Available,
@@ -67,7 +67,7 @@ pub struct AppComputeWorker<W: ComputeWorker> {
     pub(crate) state: WorkerState,
     render_device: RenderDevice,
     render_queue: RenderQueue,
-    cached_pipeline_ids: HashMap<String, CachedAppComputePipelineId>,
+    cached_pipeline_ids: HashMap<String, AppCachedComputePipelineId>,
     pipelines: HashMap<String, Option<ComputePipeline>>,
     buffers: HashMap<String, Buffer>,
     staging_buffers: HashMap<String, StagingBuffer>,
@@ -174,7 +174,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
     fn swap(&mut self, index: usize) -> Result<()> {
         let (buf_a_name, buf_b_name) = match &self.steps[index] {
             Step::ComputePass(_) => {
-                return Err(Error::InvalidStep(format!("{:?}", self.steps[index])))
+                return Err(Error::InvalidStep(format!("{:?}", self.steps[index])));
             }
             Step::Swap(a, b) => (a.as_str(), b.as_str()),
         };
@@ -187,7 +187,11 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             return Err(Error::BufferNotFound(buf_b_name.to_owned()));
         }
 
-        let [buffer_a, buffer_b] = self.buffers.get_many_mut([buf_a_name, buf_b_name]).unwrap();
+        let [Some(buffer_a), Some(buffer_b)] = self.buffers.get_many_mut([buf_a_name, buf_b_name])
+        else {
+            panic!("get_many_mut(): returned None buffer.")
+        };
+
         std::mem::swap(buffer_a, buffer_b);
 
         Ok(())
@@ -450,10 +454,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         }
     }
 
-    pub(crate) fn extract_pipelines(
-        mut worker: ResMut<Self>,
-        pipeline_cache: Res<AppPipelineCache>,
-    ) {
+    pub(crate) fn extract_pipelines(mut worker: ResMut<Self>, pipeline_cache: Res<PipelineCache>) {
         for (type_path, cached_id) in &worker.cached_pipeline_ids.clone() {
             let Some(pipeline) = worker.pipelines.get(type_path) else {
                 continue;

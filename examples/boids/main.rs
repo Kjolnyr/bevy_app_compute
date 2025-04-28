@@ -9,7 +9,7 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 
 use bevy::window::PrimaryWindow;
-use bevy_easy_compute::prelude::*;
+use bevy_app_compute::prelude::*;
 
 use worker::{Boid, BoidWorker};
 
@@ -19,7 +19,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(LogDiagnosticsPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(AppComputePlugin)
         .add_plugins(AppComputeWorkerPlugin::<BoidWorker>::default())
         .insert_resource(ClearColor(css::BLACK.into()))
@@ -61,12 +61,12 @@ fn move_entities(
     worker: ResMut<AppComputeWorker<BoidWorker>>,
     q_window: Query<&Window, With<PrimaryWindow>>,
     mut q_boid: Query<(&mut Transform, &BoidEntity), With<BoidEntity>>,
-) {
+) -> Result<()> {
     if !worker.ready() {
-        return;
+        return Ok(());
     }
 
-    let window = q_window.single();
+    let window = q_window.single()?;
 
     let boids = worker.read_vec::<Boid>("boids_dst");
 
@@ -81,4 +81,6 @@ fn move_entities(
             transform.translation = world_pos.extend(0.);
             transform.look_to(Vec3::Z, boids[boid_entity.0].vel.extend(0.));
         });
+
+    Ok(())
 }

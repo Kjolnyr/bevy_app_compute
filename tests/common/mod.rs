@@ -1,5 +1,5 @@
 use bevy::{prelude::*, winit::WinitPlugin};
-use bevy_easy_compute::prelude::{
+use bevy_app_compute::prelude::{
     AppComputePlugin, AppComputeWorker, AppComputeWorkerPlugin, ComputeWorker,
 };
 

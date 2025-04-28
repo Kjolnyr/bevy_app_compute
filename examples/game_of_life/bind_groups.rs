@@ -9,7 +9,7 @@ use bevy::{
         renderer::RenderDevice,
     },
 };
-use bevy_easy_compute::prelude::*;
+use bevy_app_compute::prelude::*;
 
 use crate::worker::{
     GameOfLifeWorker, Settings, CELLS_IN_BUFFER, CELLS_OUT_BUFFER, SETTINGS_BUFFER,

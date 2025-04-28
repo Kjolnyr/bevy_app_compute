@@ -1,8 +1,14 @@
 #![doc = include_str!("../README.md")]
 
-use bevy::prelude::{AssetEvent, Assets, EventReader, Res, ResMut, Shader};
-
-use pipeline_cache::AppPipelineCache;
+use bevy::{
+    asset::{AssetEvent, Assets},
+    ecs::{
+        event::EventReader,
+        system::{Res, ResMut},
+    },
+    render::render_resource::Shader,
+};
+use pipeline_cache::PipelineCache;
 
 mod error;
 mod pipeline_cache;
@@ -27,12 +33,8 @@ pub mod prelude {
     pub use bevy::render::render_resource::{ShaderRef, ShaderType};
 }
 
-pub(crate) fn process_pipeline_queue_system(mut pipeline_cache: ResMut<AppPipelineCache>) {
-    pipeline_cache.process_queue();
-}
-
 pub(crate) fn extract_shaders(
-    mut pipeline_cache: ResMut<AppPipelineCache>,
+    mut pipeline_cache: ResMut<PipelineCache>,
     shaders: Res<Assets<Shader>>,
     mut events: EventReader<AssetEvent<Shader>>,
 ) {
@@ -40,13 +42,13 @@ pub(crate) fn extract_shaders(
         match event {
             AssetEvent::Added { id: shader_id } | AssetEvent::Modified { id: shader_id } => {
                 if let Some(shader) = shaders.get(*shader_id) {
-                    pipeline_cache.set_shader(shader_id, shader);
+                    pipeline_cache.set_shader(*shader_id, shader);
                 }
             }
-            AssetEvent::Removed { id: shader_id } => pipeline_cache.remove_shader(shader_id),
+            AssetEvent::Removed { id: shader_id } => pipeline_cache.remove_shader(*shader_id),
             AssetEvent::LoadedWithDependencies { id: shader_id } => {
                 if let Some(shader) = shaders.get(*shader_id) {
-                    pipeline_cache.set_shader(shader_id, shader);
+                    pipeline_cache.set_shader(*shader_id, shader);
                 }
             }
             AssetEvent::Unused { id: _ } => (),
