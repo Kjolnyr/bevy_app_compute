@@ -12,7 +12,7 @@ homepage = "https://github.com/Kjolnyr/bevy_app_compute"
 documentation = "https://docs.rs/bevy_app_compute"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-categories = ["game-development", "bevy"]
+categories = ["game-development"]
 
 [features]
 shader_format_spirv = ["wgpu/spirv"]
