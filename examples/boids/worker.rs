@@ -68,7 +68,7 @@ impl ComputeWorker for BoidWorker {
             .add_staging("boids_src", &initial_boids_data)
             .add_staging("boids_dst", &initial_boids_data)
             .add_pass::<BoidsShader>(
-                [NUM_BOIDS / 64, 1, 1],
+                [ops::ceil(NUM_BOIDS as f32 / 64.0) as u32, 1, 1],
                 &["params", "boids_src", "boids_dst"],
             )
             .add_swap("boids_src", "boids_dst")
