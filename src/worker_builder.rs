@@ -1,22 +1,19 @@
 use std::{borrow::Cow, marker::PhantomData, time::Duration};
 
 use bevy::{
-    platform::collections::HashMap,
-    prelude::{AssetServer, World},
-    render::{
+    asset::{Assets, Handle}, platform::collections::HashMap, prelude::{AssetServer, World}, render::{
         render_resource::{
-            Buffer, ComputePipelineDescriptor, ShaderRef, ShaderType,
-            encase::{StorageBuffer, UniformBuffer, private::WriteInto},
+            encase::{private::WriteInto, StorageBuffer, UniformBuffer}, Buffer, ComputePipelineDescriptor, ShaderRef, ShaderType
         },
-        renderer::RenderDevice,
-    },
+        renderer::RenderDevice, storage::ShaderStorageBuffer,
+    }
 };
 use wgpu::{BufferDescriptor, BufferUsages, util::BufferInitDescriptor};
 
 use crate::{
     pipeline_cache::{AppCachedComputePipelineId, PipelineCache},
     traits::{ComputeShader, ComputeWorker},
-    worker::{AppComputeWorker, ComputePass, RunMode, StagingBuffer, Step},
+    worker::{AppComputeWorker, BufferLabel, ComputePass, RunMode, StagingBuffer, Step},
 };
 
 /// A builder struct to build [`AppComputeWorker<W>`]
@@ -26,6 +23,7 @@ pub struct AppComputeWorkerBuilder<'a, W: ComputeWorker> {
     pub(crate) cached_pipeline_ids: HashMap<String, AppCachedComputePipelineId>,
     pub(crate) buffers: HashMap<String, Buffer>,
     pub(crate) staging_buffers: HashMap<String, StagingBuffer>,
+    pub(crate) storage_buffer_asset_handles: HashMap<String, Handle<ShaderStorageBuffer>>,
     pub(crate) steps: Vec<Step>,
     pub(crate) run_mode: RunMode,
     /// Maximum duration the compute shader will run asyncronously before being set to synchronous.
@@ -48,6 +46,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
             cached_pipeline_ids: HashMap::default(),
             buffers: HashMap::default(),
             staging_buffers: HashMap::default(),
+            storage_buffer_asset_handles: HashMap::default(),
             steps: vec![],
             run_mode: RunMode::Continuous,
             maximum_async_time: Some(Duration::from_secs(0)),
@@ -127,6 +126,54 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
                 usage,
             }),
         );
+        self
+    }
+
+    /// Add a new storage buffer to the worker, and fill it with `storage`. It will be read only.
+    /// Additionally, it will create a `ShaderStorageBuffer` asset in the asset server
+    /// which can be shared with materials.
+    pub fn add_storage_asset<T: ShaderType + WriteInto>(
+        &mut self,
+        name: &'static str,
+        storage: &T,
+    ) -> &mut Self {
+        let mut assets = self.world.resource_mut::<Assets<ShaderStorageBuffer>>();
+
+        let mut asset = ShaderStorageBuffer::from(storage);
+        
+        asset.buffer_description.label = Some(name);
+        
+        asset.buffer_description.usage = BufferUsages::COPY_DST | BufferUsages::STORAGE;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            asset.buffer_description.usage |= extra_usages;
+        }
+
+        let handle = assets.add(asset);
+        self.storage_buffer_asset_handles.insert(name.to_owned(), handle);
+        self
+    }
+
+    /// Add a new storage buffer to the worker, and fill it with `storage`. It will be read only.
+    /// Additionally, it will create a `ShaderStorageBuffer` asset in the asset server
+    /// which can be shared with materials.
+    pub fn add_rw_storage_asset<T: ShaderType + WriteInto>(
+        &mut self,
+        name: &'static str,
+        storage: &T,
+    ) -> &mut Self {
+        let mut assets = self.world.resource_mut::<Assets<ShaderStorageBuffer>>();
+
+        let mut asset = ShaderStorageBuffer::from(storage);
+        
+        asset.buffer_description.label = Some(name);
+        
+        asset.buffer_description.usage = BufferUsages::COPY_DST | BufferUsages::COPY_SRC | BufferUsages::STORAGE;
+        if let Some(extra_usages) = self.extra_buffer_usages {
+            asset.buffer_description.usage |= extra_usages;
+        }
+
+        let handle = assets.add(asset);
+        self.storage_buffer_asset_handles.insert(name.to_owned(), handle);
         self
     }
 
@@ -247,7 +294,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
     /// Add a new compute pass to your worker.
     /// They will run sequentially in the order you insert them.
-    pub fn add_pass<S: ComputeShader>(&mut self, workgroups: [u32; 3], vars: &[&str]) -> &mut Self {
+    pub fn add_pass<S: ComputeShader>(&mut self, workgroups: [u32; 3], vars: &[&str], storage_asset_vars: &[&str]) -> &mut Self {
         if !self.cached_pipeline_ids.contains_key(S::type_path()) {
             let pipeline_cache = self.world.resource::<PipelineCache>();
 
@@ -277,7 +324,16 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
 
         self.steps.push(Step::ComputePass(ComputePass {
             workgroups,
-            vars: vars.iter().map(|a| String::from(*a)).collect(),
+            vars: {
+                let mut v = Vec::with_capacity(vars.len() + storage_asset_vars.len());
+                for var in vars {
+                    v.push(BufferLabel::Worker(var.to_string()));
+                }
+                for var in storage_asset_vars {
+                    v.push(BufferLabel::StorageAsset(var.to_string()));
+                }
+                v
+            },
             shader_type_path: S::type_path().to_string(),
         }));
         self

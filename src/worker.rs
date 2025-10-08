@@ -6,21 +6,20 @@ use std::{
 };
 
 use bevy::{
-    platform::collections::HashMap,
-    prelude::{Res, ResMut, Resource},
-    render::{
+    asset::Handle, platform::collections::HashMap, prelude::{Res, ResMut, Resource}, render::{
         render_resource::{Buffer, ComputePipeline},
-        renderer::{RenderDevice, RenderQueue},
-    },
+        renderer::{RenderDevice, RenderQueue}, storage::ShaderStorageBuffer,
+    }
 };
 use bytemuck::{AnyBitPattern, NoUninit, bytes_of, cast_slice, from_bytes};
 use wgpu::{BindGroupEntry, CommandEncoder, CommandEncoderDescriptor, ComputePassDescriptor};
 
 use crate::{
-    error::{Error, Result},
+    error::{Error, Result}, 
     pipeline_cache::{AppCachedComputePipelineId, PipelineCache},
-    traits::ComputeWorker,
-    worker_builder::AppComputeWorkerBuilder,
+    storage_buffers::MainWorldShaderStorageBufferAssets, 
+    traits::ComputeWorker, 
+    worker_builder::AppComputeWorkerBuilder
 };
 
 #[derive(PartialEq, Clone, Copy)]
@@ -43,10 +42,16 @@ pub(crate) enum Step {
     Swap(String, String),
 }
 
+#[derive(Clone,Debug)]
+pub(crate) enum BufferLabel {
+    Worker(String),
+    StorageAsset(String),
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct ComputePass {
     pub(crate) workgroups: [u32; 3],
-    pub(crate) vars: Vec<String>,
+    pub(crate) vars: Vec<BufferLabel>,
     pub(crate) shader_type_path: String,
 }
 
@@ -71,6 +76,7 @@ pub struct AppComputeWorker<W: ComputeWorker> {
     pipelines: HashMap<String, Option<ComputePipeline>>,
     buffers: HashMap<String, Buffer>,
     staging_buffers: HashMap<String, StagingBuffer>,
+    storage_buffer_asset_handles: HashMap<String, Handle<ShaderStorageBuffer>>,
     steps: Vec<Step>,
     command_encoder: Option<CommandEncoder>,
     run_mode: RunMode,
@@ -105,6 +111,7 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
             pipelines,
             buffers: builder.buffers.clone(),
             staging_buffers: builder.staging_buffers.clone(),
+            storage_buffer_asset_handles: builder.storage_buffer_asset_handles.clone(),
             steps: builder.steps.clone(),
             command_encoder,
             run_mode: builder.run_mode,
@@ -117,7 +124,7 @@ impl<W: ComputeWorker> From<&AppComputeWorkerBuilder<'_, W>> for AppComputeWorke
 
 impl<W: ComputeWorker> AppComputeWorker<W> {
     #[inline]
-    fn dispatch(&mut self, index: usize) -> Result<()> {
+    fn dispatch(&mut self, index: usize, storage_buffer_assets: &Option<Res<MainWorldShaderStorageBufferAssets>>) -> Result<()> {
         let compute_pass = match &self.steps[index] {
             Step::ComputePass(compute_pass) => compute_pass,
             Step::Swap(_, _) => return Err(Error::InvalidStep(format!("{:?}", self.steps[index]))),
@@ -125,16 +132,37 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
         let mut entries = vec![];
         for (index, var) in compute_pass.vars.iter().enumerate() {
-            let Some(buffer) = self.buffers.get(var) else {
-                return Err(Error::BufferNotFound(var.to_owned()));
-            };
+            match var {
+                BufferLabel::Worker(name) => {
+                    let Some(buffer) = self.buffers.get(name) else {
+                        return Err(Error::BufferNotFound(name.to_owned()));
+                    };
+                    entries.push(BindGroupEntry {
+                        binding: index as u32,
+                        resource: buffer.as_entire_binding(),
+                    });
+                }
+                BufferLabel::StorageAsset(name) => {
+                    let Some(asset_handle) = self.storage_buffer_asset_handles.get(name) else {
+                        return Err(Error::StorageAssetHandleNotFound(name.to_owned()));
+                    };
+                    
+                    let Some(storage_buffer_assets) = storage_buffer_assets else {
+                        // Probably hasn't been inserted yet
+                        return Ok(());
+                    };
 
-            let entry = BindGroupEntry {
-                binding: index as u32,
-                resource: buffer.as_entire_binding(),
-            };
+                    let Some(buffer) = storage_buffer_assets.get(&asset_handle.id()) else {
+                        // Probably the asset exists but hasn't been prepared yet
+                        return Ok(());
+                    };
 
-            entries.push(entry);
+                    entries.push(BindGroupEntry {
+                        binding: index as u32,
+                        resource: buffer.as_entire_binding(),
+                    });
+                }
+            }
         }
 
         let Some(maybe_pipeline) = self.pipelines.get(&compute_pass.shader_type_path) else {
@@ -399,7 +427,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             && (self.run_mode != RunMode::OneShot(false))
     }
 
-    pub(crate) fn run(mut worker: ResMut<Self>) {
+    pub(crate) fn run(mut worker: ResMut<Self>, storage_buffers: Option<Res<MainWorldShaderStorageBufferAssets>>) {
         if worker.ready() {
             worker.state = WorkerState::Available;
         }
@@ -408,7 +436,7 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
             // Workaround for interior mutability
             for i in 0..worker.steps.len() {
                 let result = match worker.steps[i] {
-                    Step::ComputePass(_) => worker.dispatch(i),
+                    Step::ComputePass(_) => worker.dispatch(i, &storage_buffers),
                     Step::Swap(_, _) => worker.swap(i),
                 };
 
@@ -475,5 +503,9 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
 
     pub fn get_buffer(&self, target: &str) -> Option<&Buffer> {
         self.buffers.get(target)
+    }
+
+    pub fn get_storage_buffer_asset_handle(&self, target: &str) -> Option<&Handle<ShaderStorageBuffer>> {
+        self.storage_buffer_asset_handles.get(target)
     }
 }

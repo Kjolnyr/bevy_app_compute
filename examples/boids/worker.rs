@@ -70,6 +70,7 @@ impl ComputeWorker for BoidWorker {
             .add_pass::<BoidsShader>(
                 [NUM_BOIDS / 64, 1, 1],
                 &["params", "boids_src", "boids_dst"],
+                &[],
             )
             .add_swap("boids_src", "boids_dst")
             .build()

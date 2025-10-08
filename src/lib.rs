@@ -16,6 +16,7 @@ mod plugin;
 mod traits;
 mod worker;
 mod worker_builder;
+mod storage_buffers;
 
 /// Helper module to import most used elements.
 pub mod prelude {

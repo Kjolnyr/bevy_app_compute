@@ -2,11 +2,11 @@ use std::marker::PhantomData;
 
 use bevy::{
     prelude::*,
-    render::renderer::{RenderAdapter, RenderDevice},
+    render::{render_asset::RenderAssets, renderer::{RenderAdapter, RenderDevice}, storage::GpuShaderStorageBuffer, RenderApp},
 };
 
 use crate::{
-    extract_shaders, pipeline_cache::PipelineCache, traits::ComputeWorker, worker::AppComputeWorker,
+    extract_shaders, pipeline_cache::PipelineCache, storage_buffers::extract_gpu_storage_buffers_to_main, traits::ComputeWorker, worker::AppComputeWorker
 };
 
 /// The main plugin. Always include it if you want to use `bevy_app_compute`
@@ -29,6 +29,13 @@ impl Plugin for AppComputePlugin {
                 PipelineCache::process_pipeline_queue_system
                     .in_set(BevyEasyComputeSet::ExtractPipelines),
             );
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(
+                ExtractSchedule,
+                extract_gpu_storage_buffers_to_main.run_if(resource_changed::<RenderAssets<GpuShaderStorageBuffer>>),
+            );
+        }
     }
 }
 
