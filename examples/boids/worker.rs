@@ -70,6 +70,7 @@ impl ComputeWorker for BoidWorker {
             .add_pass::<BoidsShader>(
                 [ops::ceil(NUM_BOIDS as f32 / 64.0) as u32, 1, 1],
                 &["params", "boids_src", "boids_dst"],
+                &[],
             )
             .add_swap("boids_src", "boids_dst")
             .build()

@@ -20,7 +20,7 @@ impl ComputeWorker for SimpleComputeWorker {
         let worker = AppComputeWorkerBuilder::new(world)
             .add_uniform("uni", &5.)
             .add_staging("values", &[1., 2., 3., 4.])
-            .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
+            .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"], &[])
             .build();
 
         worker

@@ -68,6 +68,9 @@ features = [
   "x11",
   "bevy_winit",
   "bevy_window",
+  "tonemapping_luts",
+  "ktx2",
+  "zstd",
 ]
 
 [[example]]
@@ -81,3 +84,6 @@ name = "one_shot"
 
 [[example]]
 name = "boids"
+
+[[example]]
+name = "shared_storage"

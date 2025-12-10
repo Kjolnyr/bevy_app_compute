@@ -68,6 +68,7 @@ impl ComputeWorker for GameOfLifeWorker {
                     1,
                 ],
                 &[SETTINGS_BUFFER, CELLS_IN_BUFFER, CELLS_OUT_BUFFER],
+                &[]
             )
             .add_swap(CELLS_IN_BUFFER, CELLS_OUT_BUFFER)
             .build()

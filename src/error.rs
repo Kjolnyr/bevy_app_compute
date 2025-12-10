@@ -4,6 +4,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     BufferNotFound(String),
     StagingBufferNotFound(String),
+    StorageAssetHandleNotFound(String),
     InvalidStep(String),
     PipelinesEmpty,
     PipelineNotReady,
@@ -17,6 +18,9 @@ impl std::fmt::Display for Error {
         match self {
             Error::BufferNotFound(name) => write!(f, "Buffer {name} not found."),
             Error::StagingBufferNotFound(name) => write!(f, "Staging buffer {name} not found."),
+            Error::StorageAssetHandleNotFound(name) => {
+                write!(f, "Storage buffer asset handle {name} not found.")
+            }
             Error::PipelinesEmpty => {
                 write!(f, "Missing pipelines. Have you added your shader plugins?")
             }
