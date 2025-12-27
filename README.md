@@ -167,6 +167,27 @@ in the next frame.
 (see
 [one_shot.rs](https://github.com/Kjolnyr/bevy_app_compute/tree/main/examples/one_shot.rs))
 
+## Changing workgroups at runtime
+
+If you need to change number of workgroups working in the shader at the given execute, just use `set_workgroups()`
+
+```rust
+fn on_click_compute(
+    buttons: Res<ButtonInput<MouseButton>>,
+    mut compute_worker: ResMut<AppComputeWorker<VariablePassComputeWorker>>,
+) {
+    if !buttons.just_pressed(MouseButton::Left) {
+        return;
+    }
+
+    compute_worker.set_workgroups([64, 64, 64], 0);
+    compute_worker.execute();
+}
+```
+
+(see
+[variable_pass.rs](https://github.com/Kjolnyr/bevy_app_compute/tree/main/examples/variable_pass.rs))
+
 ## Examples
 
 See [examples](https://github.com/Kjolnyr/bevy_app_compute/tree/main/examples)

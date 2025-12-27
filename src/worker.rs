@@ -473,6 +473,35 @@ impl<W: ComputeWorker> AppComputeWorker<W> {
         }
     }
 
+    ///Sets the workgroups at the runtime.
+    ///`pass_index` takes the number of pass in order you wrote them inside a builder
+    ///
+    /// For example, in the scenario below, if you want to change workgroups for the SimpleShader, provide 0 as the argument.
+    /// If you want to change workgroups of the SomeOtherShader pass, provide 1 as the argument.
+    ///
+    /// ```rust
+    /// .add_pass::<SimpleShader>([1, 1, 1], &["counter"])      //0
+    /// .add_pass::<SomeOtherShader>([1, 1, 1], &["counter"])   //1
+    /// ```
+    ///
+    /// If you used add_swap in between, you have to account for it as well.
+    ///
+    ///```rust
+    /// .add_pass::<SimpleShader>([1, 1, 1], &["counter"])      //0
+    /// .add_swap("src", "dst")                                 //1
+    /// .add_pass::<SomeOtherShader>([1, 1, 1], &["counter"])   //2
+    /// ```
+    ///
+    /// Providing index of non-existing pass will result in `Out Of Bounds` error.
+    pub fn set_workgroups(&mut self, workgroups: [u32; 3], pass_index: usize) {
+        let compute_pass = match &mut self.steps[pass_index] {
+            Step::ComputePass(compute_pass) => compute_pass,
+            Step::Swap(_, _) => return,
+        };
+
+        compute_pass.workgroups = workgroups;
+    }
+
     pub fn get_buffer(&self, target: &str) -> Option<&Buffer> {
         self.buffers.get(target)
     }
