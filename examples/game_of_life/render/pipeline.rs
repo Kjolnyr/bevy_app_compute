@@ -28,18 +28,18 @@ impl FromWorld for DrawParticlePipeline {
         let pipeline = pipeline_cache.queue_render_pipeline(
             bevy::render::render_resource::RenderPipelineDescriptor {
                 label: None,
-                layout: [bindings.bind_group_layout.clone()].to_vec(),
+                layout: [bindings.bind_group_descriptor.clone()].to_vec(),
                 push_constant_ranges: Vec::new(),
                 vertex: VertexState {
                     shader: shader.clone(),
-                    entry_point: "vertex".into(),
+                    entry_point: Some("vertex".into()),
                     shader_defs: vec![],
                     buffers: vec![],
                 },
                 fragment: Some(FragmentState {
                     shader,
                     shader_defs: vec![],
-                    entry_point: "fragment".into(),
+                    entry_point: Some("fragment".into()),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::bevy_default(),
                         blend: None,

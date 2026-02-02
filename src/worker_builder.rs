@@ -5,16 +5,17 @@ use bevy::{
     prelude::{AssetServer, World},
     render::{
         render_resource::{
-            Buffer, ComputePipelineDescriptor, ShaderRef, ShaderType,
+            Buffer, ComputePipelineDescriptor, ShaderType,
             encase::{StorageBuffer, UniformBuffer, private::WriteInto},
         },
         renderer::RenderDevice,
     },
+    shader::ShaderRef,
 };
 use wgpu::{BufferDescriptor, BufferUsages, util::BufferInitDescriptor};
 
 use crate::{
-    pipeline_cache::{AppCachedComputePipelineId, PipelineCache},
+    pipeline_cache::{AppCachedComputePipelineId, BevyAppComputePipelineCache},
     traits::{ComputeShader, ComputeWorker},
     worker::{AppComputeWorker, ComputePass, RunMode, StagingBuffer, Step},
 };
@@ -249,7 +250,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
     /// They will run sequentially in the order you insert them.
     pub fn add_pass<S: ComputeShader>(&mut self, workgroups: [u32; 3], vars: &[&str]) -> &mut Self {
         if !self.cached_pipeline_ids.contains_key(S::type_path()) {
-            let pipeline_cache = self.world.resource::<PipelineCache>();
+            let pipeline_cache = self.world.resource::<BevyAppComputePipelineCache>();
 
             let asset_server = self.world.resource::<AssetServer>();
             let shader = match S::shader() {
@@ -264,7 +265,7 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
                 layout: S::layouts().to_vec(),
                 push_constant_ranges: S::push_constant_ranges().to_vec(),
                 shader_defs: S::shader_defs().to_vec(),
-                entry_point: Cow::Borrowed(S::entry_point()),
+                entry_point: Some(Cow::Borrowed(S::entry_point())),
                 shader,
                 zero_initialize_workgroup_memory: false,
             });
