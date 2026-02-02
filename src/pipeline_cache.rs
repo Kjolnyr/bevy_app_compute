@@ -15,6 +15,7 @@ use bevy::render::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
 };
+use bevy::shader::*;
 use bevy::tasks::Task;
 use bevy::utils::default;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
@@ -690,14 +691,14 @@ impl PipelineCache {
                 let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
                     (
                         fragment_module.unwrap(),
-                        fragment.entry_point.deref(),
+                        fragment.entry_point.as_deref(),
                         fragment.targets.as_slice(),
                     )
                 });
 
                 // TODO: Expose the rest of this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &default(),
+                    constants: &[],
                     zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
@@ -710,7 +711,7 @@ impl PipelineCache {
                     primitive: descriptor.primitive,
                     vertex: RawVertexState {
                         buffers: &vertex_buffer_layouts,
-                        entry_point: Some(descriptor.vertex.entry_point.deref()),
+                        entry_point: descriptor.vertex.entry_point.as_deref(),
                         module: &vertex_module,
                         // TODO: Should this be the same as the fragment compilation options?
                         compilation_options: compilation_options.clone(),
@@ -718,7 +719,7 @@ impl PipelineCache {
                     fragment: fragment_data
                         .as_ref()
                         .map(|(module, entry_point, targets)| RawFragmentState {
-                            entry_point: Some(entry_point),
+                            entry_point: *entry_point,
                             module,
                             targets,
                             // TODO: Should this be the same as the vertex compilation options?
@@ -776,10 +777,10 @@ impl PipelineCache {
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
-                    entry_point: Some(&descriptor.entry_point),
+                    entry_point: descriptor.entry_point.as_deref(),
                     // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &default(),
+                        constants: &[],
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
@@ -949,8 +950,8 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+        Capabilities::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
     );
     // TODO: This needs a proper wgpu feature
     capabilities.set(

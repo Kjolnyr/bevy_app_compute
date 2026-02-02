@@ -32,14 +32,14 @@ impl FromWorld for DrawParticlePipeline {
                 push_constant_ranges: Vec::new(),
                 vertex: VertexState {
                     shader: shader.clone(),
-                    entry_point: "vertex".into(),
+                    entry_point: Some("vertex".into()),
                     shader_defs: vec![],
                     buffers: vec![],
                 },
                 fragment: Some(FragmentState {
                     shader,
                     shader_defs: vec![],
-                    entry_point: "fragment".into(),
+                    entry_point: Some("fragment".into()),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::bevy_default(),
                         blend: None,

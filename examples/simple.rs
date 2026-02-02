@@ -36,6 +36,7 @@ fn main() {
                     primary_window: None,
                     exit_condition: bevy::window::ExitCondition::DontExit,
                     close_when_requested: false,
+                    primary_cursor_options: None,
                 }),
         )
         .add_plugins(AppComputePlugin)

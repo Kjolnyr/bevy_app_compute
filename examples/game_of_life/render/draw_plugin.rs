@@ -4,8 +4,8 @@ use bevy::{
     core_pipeline::core_2d::graph::{Core2d, Node2d},
     prelude::*,
     render::{
-        render_graph::{RenderGraphApp, ViewNodeRunner},
         MainWorld, RenderApp,
+        render_graph::{RenderGraphExt, ViewNodeRunner},
     },
 };
 

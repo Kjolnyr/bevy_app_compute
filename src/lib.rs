@@ -3,10 +3,10 @@
 use bevy::{
     asset::{AssetEvent, Assets},
     ecs::{
-        event::EventReader,
+        message::MessageReader,
         system::{Res, ResMut},
     },
-    render::render_resource::Shader,
+    shader::Shader,
 };
 use pipeline_cache::PipelineCache;
 
@@ -30,13 +30,14 @@ pub mod prelude {
     };
 
     // Since these are always used when using this crate
-    pub use bevy::render::render_resource::{ShaderRef, ShaderType};
+    pub use bevy::render::render_resource::ShaderType;
+    pub use bevy::shader::ShaderRef;
 }
 
 pub(crate) fn extract_shaders(
     mut pipeline_cache: ResMut<PipelineCache>,
     shaders: Res<Assets<Shader>>,
-    mut events: EventReader<AssetEvent<Shader>>,
+    mut events: MessageReader<AssetEvent<Shader>>,
 ) {
     for event in events.read() {
         match event {

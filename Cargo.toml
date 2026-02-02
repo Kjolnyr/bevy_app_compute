@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app_compute"
-version = "0.16.0"
+version = "0.17.0"
 authors = [
     "Cornchip <cornchipgonecodin@gmail.com>",
     "Kjolnyr <kjolnyr@protonmail.com>",
@@ -30,9 +30,9 @@ wesl = { version = "0.1.2", optional = true }
 # The following are only needed to support the `pipeline_cache` "hack". See issue in bevy_easy_compute:
 # https://github.com/AnthonyTornetta/bevy_easy_compute/issues/7
 # Make sure these match bevy's versions
-wgpu = { version = "24.0.0", features = ["naga-ir"] }
-naga = { version = "24.0.0", features = ["wgsl-in"] }
-naga_oil = { version = "0.17.0", default-features = false, features = [
+wgpu = { version = "26", features = ["naga-ir"] }
+naga = { version = "26", features = ["wgsl-in"] }
+naga_oil = { version = "0.19", default-features = false, features = [
     "test_shader",
 ] }
 futures-lite = "2.0.1"
@@ -40,21 +40,18 @@ thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] } 
 
 [dependencies.bevy]
-version = "0.16.0"
+version = "0.17.3"
 default-features = false
 # See https://github.com/bevyengine/bevy/blob/main/docs/cargo_features.md
 features = [
-  "bevy_core_pipeline",
-
-  # TODO: is this inherited by downstream users? If so, then we probably don't need it
-  "multi_threaded",
+  "bevy_render",
 ]
 
 [dev-dependencies]
 rand = ">=0.9.1"
 
 [dev-dependencies.bevy]
-version = "0.16.0"
+version = "0.17.0"
 default-features = false
 features = [
   "animation",
@@ -62,6 +59,7 @@ features = [
   "bevy_pbr",
   "bevy_gltf",
   "bevy_render",
+  "bevy_sprite_render",
   "bevy_ui",
   "multi_threaded",
   "png",
