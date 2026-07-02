@@ -17,14 +17,12 @@ struct SimpleComputeWorker;
 
 impl ComputeWorker for SimpleComputeWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
-        let worker = AppComputeWorkerBuilder::new(world)
+        AppComputeWorkerBuilder::new(world)
             .add_uniform("uni", &5.)
             .add_staging("values", &[1., 2., 3., 4.])
             .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
             .one_shot()
-            .build();
-
-        worker
+            .build()
     }
 }
 

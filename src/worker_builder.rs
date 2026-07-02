@@ -5,16 +5,16 @@ use bevy::{
     prelude::{AssetServer, World},
     render::{
         render_resource::{
-            Buffer, ComputePipelineDescriptor, ShaderRef, ShaderType,
+            Buffer, CachedComputePipelineId, ComputePipelineDescriptor, PipelineCache, ShaderType,
             encase::{StorageBuffer, UniformBuffer, private::WriteInto},
         },
         renderer::RenderDevice,
     },
+    shader::ShaderRef,
 };
 use wgpu::{BufferDescriptor, BufferUsages, util::BufferInitDescriptor};
 
 use crate::{
-    pipeline_cache::{AppCachedComputePipelineId, PipelineCache},
     traits::{ComputeShader, ComputeWorker},
     worker::{AppComputeWorker, ComputePass, RunMode, StagingBuffer, Step},
 };
@@ -23,7 +23,7 @@ use crate::{
 /// from your structs implementing [`ComputeWorker`]
 pub struct AppComputeWorkerBuilder<'a, W: ComputeWorker> {
     pub(crate) world: &'a mut World,
-    pub(crate) cached_pipeline_ids: HashMap<String, AppCachedComputePipelineId>,
+    pub(crate) cached_pipeline_ids: HashMap<String, CachedComputePipelineId>,
     pub(crate) buffers: HashMap<String, Buffer>,
     pub(crate) staging_buffers: HashMap<String, StagingBuffer>,
     pub(crate) steps: Vec<Step>,
@@ -262,16 +262,16 @@ impl<'a, W: ComputeWorker> AppComputeWorkerBuilder<'a, W> {
             let cached_id = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: None,
                 layout: S::layouts().to_vec(),
-                push_constant_ranges: S::push_constant_ranges().to_vec(),
+                immediate_size: S::immediate_size(),
                 shader_defs: S::shader_defs().to_vec(),
-                entry_point: Cow::Borrowed(S::entry_point()),
+                entry_point: Some(Cow::Borrowed(S::entry_point())),
                 shader,
                 zero_initialize_workgroup_memory: false,
             });
 
             self.cached_pipeline_ids.insert(
                 S::type_path().to_string(),
-                AppCachedComputePipelineId(cached_id.id()),
+                CachedComputePipelineId::new(cached_id.id()),
             );
         }
 

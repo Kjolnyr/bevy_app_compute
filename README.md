@@ -42,7 +42,7 @@ struct SimpleComputeWorker;
 
 impl ComputeWorker for SimpleComputeWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
-        let worker = AppComputeWorkerBuilder::new(world)
+        AppComputeWorkerBuilder::new(world)
             // Add a uniform variable
             .add_uniform("uni", &5.)
 
@@ -53,9 +53,7 @@ impl ComputeWorker for SimpleComputeWorker {
             // Create a compute pass from your compute shader
             // and define used variables
             .add_pass::<SimpleShader>([4, 1, 1], &["uni", "values"])
-            .build();
-
-        worker
+            .build()
     }
 }
 

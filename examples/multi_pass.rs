@@ -27,18 +27,16 @@ struct SimpleComputeWorker;
 
 impl ComputeWorker for SimpleComputeWorker {
     fn build(world: &mut World) -> AppComputeWorker<Self> {
-        let worker = AppComputeWorkerBuilder::new(world)
+        AppComputeWorkerBuilder::new(world)
             .add_uniform("value", &3.)
             .add_storage("input", &[1., 2., 3., 4.])
             .add_staging("output", &[0f32; 4])
             .add_pass::<FirstPassShader>([4, 1, 1], &["value", "input", "output"]) // add each item + `value` from `input` to `output`
             .add_pass::<SecondPassShader>([4, 1, 1], &["output"]) // multiply each element of `output` by itself
-            .build();
+            .build()
 
         // [1. + 3., 2. + 3., 3. + 3., 4. + 3.] = [4., 5., 6., 7.]
         // [4. * 4., 5. * 5., 6. * 6., 7. * 7.] = [16., 25., 36., 49.]
-
-        worker
     }
 }
 
@@ -51,6 +49,7 @@ fn main() {
                     primary_window: None,
                     exit_condition: bevy::window::ExitCondition::DontExit,
                     close_when_requested: false,
+                    primary_cursor_options: None,
                 }),
         )
         .add_plugins(AppComputePlugin)

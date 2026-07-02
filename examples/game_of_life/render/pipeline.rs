@@ -1,8 +1,5 @@
-//! The render pipeline for drawing particles as simple pixels
-
 use bevy::{
     asset::DirectAssetAccessExt,
-    image::BevyDefault,
     prelude::{FromWorld, Resource, World},
     render::render_resource::{
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
@@ -28,20 +25,20 @@ impl FromWorld for DrawParticlePipeline {
         let pipeline = pipeline_cache.queue_render_pipeline(
             bevy::render::render_resource::RenderPipelineDescriptor {
                 label: None,
-                layout: [bindings.bind_group_layout.clone()].to_vec(),
-                push_constant_ranges: Vec::new(),
+                layout: [bindings.bind_group_descriptor.clone()].to_vec(),
+                immediate_size: 0,
                 vertex: VertexState {
                     shader: shader.clone(),
-                    entry_point: "vertex".into(),
+                    entry_point: Some("vertex".into()),
                     shader_defs: vec![],
                     buffers: vec![],
                 },
                 fragment: Some(FragmentState {
                     shader,
                     shader_defs: vec![],
-                    entry_point: "fragment".into(),
+                    entry_point: Some("fragment".into()),
                     targets: vec![Some(ColorTargetState {
-                        format: TextureFormat::bevy_default(),
+                        format: TextureFormat::Rgba8UnormSrgb,
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     })],

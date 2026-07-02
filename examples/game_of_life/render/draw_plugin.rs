@@ -1,20 +1,12 @@
-//! A simple renderer that just draws each particle as a small pixel
-
 use bevy::{
-    core_pipeline::core_2d::graph::{Core2d, Node2d},
+    core_pipeline::{Core2d, Core2dSystems, tonemapping::tonemapping},
     prelude::*,
-    render::{
-        render_graph::{RenderGraphApp, ViewNodeRunner},
-        MainWorld, RenderApp,
-    },
+    render::{MainWorld, RenderApp},
 };
 
 use crate::bind_groups::{ParticleBindGroup, ParticleBindGroupLayout};
 
-use super::{
-    graph_node::{DrawParticleLabel, DrawParticleNode},
-    pipeline::DrawParticlePipeline,
-};
+use super::{graph_node::draw_particle_pass, pipeline::DrawParticlePipeline};
 
 /// An optional plugin to draw particles as simple pixels
 #[allow(clippy::exhaustive_structs)]
@@ -29,8 +21,12 @@ impl Plugin for DrawPlugin {
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .add_systems(ExtractSchedule, (setup.run_if(check_is_setup),))
-            .add_render_graph_node::<ViewNodeRunner<DrawParticleNode>>(Core2d, DrawParticleLabel)
-            .add_render_graph_edge(Core2d, Node2d::Tonemapping, DrawParticleLabel);
+            .add_systems(
+                Core2d,
+                draw_particle_pass
+                    .after(tonemapping)
+                    .in_set(Core2dSystems::PostProcess),
+            );
     }
 }
 
